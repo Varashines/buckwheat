@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -70,7 +71,9 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * Ledger statistics: what a month cost, where it went and how it was spread over the days.
@@ -80,6 +83,8 @@ import java.time.format.DateTimeFormatter
 fun StatsScreen(
     onBack: () -> Unit,
     onOpenSubscriptionInsights: () -> Unit = {},
+    onOpenHistoryMonth: (YearMonth) -> Unit = {},
+    onEditTransaction: (Transaction) -> Unit = {},
     spendsViewModel: SpendsViewModel = hiltViewModel(),
     subscriptionsViewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
@@ -119,6 +124,28 @@ fun StatsScreen(
         else total.divide(BigDecimal(daysElapsed), 0, RoundingMode.HALF_UP)
     }
     val biggest = remember(monthSpends) { monthSpends.maxByOrNull { it.value } }
+    val biggestCategory = biggest?.categoryId?.let { categoriesById[it] }
+    val locale = LocalConfiguration.current.locales[0]
+    val timeFormatter = remember(locale) {
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
+    }
+    val biggestTime = biggest?.date
+        ?.toInstant()
+        ?.atZone(ZoneId.systemDefault())
+        ?.toLocalTime()
+        ?.format(timeFormatter)
+    val biggestCaption = biggest?.let { spend ->
+        listOfNotNull(
+            prettyDate(spend.date, pattern = "d MMM", simplifyIfToday = false),
+            biggestTime,
+            biggestCategory?.name,
+        ).joinToString(" · ")
+    }
+    val averageCaption = pluralStringResource(
+        R.plurals.days_count,
+        daysElapsed,
+        daysElapsed,
+    )
 
     val categoryTotals = remember(monthSpends, categories, total) {
         composeCategoryTotals(monthSpends, categories, total)
@@ -237,27 +264,40 @@ fun StatsScreen(
 
             if (monthSpends.isNotEmpty()) {
                 item("summary") {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        SummaryCard(
-                            label = stringResource(R.string.daily_average),
-                            amount = average,
-                            currency = currency,
-                            container = MaterialTheme.colorScheme.secondaryContainer,
-                            content = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.weight(1f),
-                        )
-                        SummaryCard(
-                            label = stringResource(R.string.max_spent),
-                            amount = biggest?.value ?: BigDecimal.ZERO,
-                            currency = currency,
-                            container = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            content = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SummaryCard(
+                                label = stringResource(R.string.daily_average),
+                                amount = average,
+                                caption = averageCaption,
+                                currency = currency,
+                                container = MaterialTheme.colorScheme.secondaryContainer,
+                                content = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.weight(1f),
+                            )
+                            SummaryCard(
+                                label = stringResource(R.string.largest_expense),
+                                amount = biggest?.value ?: BigDecimal.ZERO,
+                                caption = biggestCaption,
+                                currency = currency,
+                                container = MaterialTheme.colorScheme.errorContainer,
+                                content = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.weight(1f),
+                                onClick = biggest?.let { spend ->
+                                    { onEditTransaction(spend) }
+                                },
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        CountCard(
+                            count = monthSpends.size,
+                            onClick = { onOpenHistoryMonth(month) },
                         )
                     }
                 }
@@ -551,12 +591,22 @@ private fun SummaryCard(
     currency: ExtendCurrency,
     container: Color,
     content: Color,
+    caption: String? = null,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
 
     Surface(
-        modifier = modifier.height(104.dp),
+        modifier = modifier
+            .heightIn(min = 120.dp)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            ),
         shape = RoundedCornerShape(24.dp),
         color = container,
         contentColor = content,
@@ -572,10 +622,55 @@ private fun SummaryCard(
             Spacer(Modifier.weight(1f))
             Text(
                 text = numberFormat(context, amount, currency),
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFeatureSettings = "tnum",
+                ),
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
+            )
+            if (caption != null) {
+                Text(
+                    text = caption,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = content.copy(alpha = 0.72f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CountCard(
+    count: Int,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = pluralStringResource(R.plurals.expenses_count, count, count),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Spacer(Modifier.weight(1f))
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = stringResource(R.string.month_expenses_action),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

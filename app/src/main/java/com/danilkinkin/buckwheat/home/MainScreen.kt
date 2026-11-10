@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import java.time.LocalDate
+import java.time.YearMonth
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +70,8 @@ fun MainScreen(
     var subscriptionsReturn by rememberSaveable { mutableStateOf(AppScreen.HOME) }
     var insightsReturn by rememberSaveable { mutableStateOf(AppScreen.SUBSCRIPTIONS) }
     var historyDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
+    // YearMonth is not Saveable; the first day of the month is.
+    var historyMonthEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
     val nightMode = remember { mutableStateOf(false) }
 
     nightMode.value = isNightMode()
@@ -138,10 +141,12 @@ fun MainScreen(
                     },
                     onOpenHistory = {
                         historyDay = null
+                        historyMonthEpoch = null
                         screen = AppScreen.HISTORY
                     },
                     onOpenToday = {
                         historyDay = LocalDate.now()
+                        historyMonthEpoch = null
                         screen = AppScreen.HISTORY
                     },
                     onOpenStats = { screen = AppScreen.STATS },
@@ -162,7 +167,14 @@ fun MainScreen(
 
                 AppScreen.HISTORY -> History(
                     initialDay = historyDay,
-                    onBack = { screen = AppScreen.HOME },
+                    initialMonth = historyMonthEpoch?.let {
+                        YearMonth.from(LocalDate.ofEpochDay(it))
+                    },
+                    onBack = {
+                        historyDay = null
+                        historyMonthEpoch = null
+                        screen = AppScreen.HOME
+                    },
                     onClose = {
                         appViewModel.openSheet(PathState(EDITOR_SHEET))
                     },
@@ -196,6 +208,15 @@ fun MainScreen(
                     onOpenSubscriptionInsights = {
                         insightsReturn = AppScreen.STATS
                         screen = AppScreen.SUBSCRIPTION_INSIGHTS
+                    },
+                    onOpenHistoryMonth = { month ->
+                        historyDay = null
+                        historyMonthEpoch = month.atDay(1).toEpochDay()
+                        screen = AppScreen.HISTORY
+                    },
+                    onEditTransaction = { transaction ->
+                        editorViewModel.startEditingSpent(transaction)
+                        appViewModel.openSheet(PathState(EDITOR_SHEET))
                     },
                 )
 

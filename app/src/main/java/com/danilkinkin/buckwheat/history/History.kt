@@ -98,6 +98,7 @@ import java.time.format.DateTimeFormatter
 fun History(
     modifier: Modifier = Modifier,
     initialDay: LocalDate? = null,
+    initialMonth: YearMonth? = null,
     spendsViewModel: SpendsViewModel = viewModel(),
     editorViewModel: EditorViewModel = viewModel(),
     onBack: (() -> Unit)? = null,
@@ -121,7 +122,7 @@ fun History(
     var showSearch by remember { mutableStateOf(false) }
     var showFilters by remember { mutableStateOf(false) }
     var selectedMonth by remember {
-        mutableStateOf(YearMonth.from(initialDay ?: LocalDate.now()))
+        mutableStateOf(initialMonth ?: YearMonth.from(initialDay ?: LocalDate.now()))
     }
     var dayFilter by remember { mutableStateOf(initialDay) }
 

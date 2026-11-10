@@ -107,6 +107,8 @@
   <string name="stats_title">Statistics</string>
   <string name="total_spent">Total spent</string>
   <string name="daily_average">Daily average</string>
+  <string name="largest_expense">Largest expense</string>
+  <string name="month_expenses_action">Open this month in History</string>
   <string name="by_category">By category</string>
   <string name="by_day">By day</string>
   <string name="year_overview">Year overview</string>

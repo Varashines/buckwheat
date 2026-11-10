@@ -63,8 +63,8 @@ android {
         applicationId = "com.varashines.eva"
         minSdk = 29
         targetSdk = 36
-        versionCode = 100
-        versionName = "5.30.0-dev"
+        versionCode = 101
+        versionName = "5.30.1-dev"
         testInstrumentationRunner = "com.danilkinkin.buckwheat.CustomTestRunner"
     }
 
@@ -160,7 +160,6 @@ dependencies {
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.room.runtime)

@@ -1,7 +1,6 @@
 package com.danilkinkin.buckwheat.home
 
 import androidx.activity.result.ActivityResultRegistryOwner
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -27,7 +26,6 @@ import kotlinx.coroutines.launch
  * The app's sheets, declared in one place so stacking order is explicit: later sheets draw above
  * earlier ones. Only sheets reachable from the current UI are kept here.
  */
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun BottomSheets(
     activityResultRegistryOwner: ActivityResultRegistryOwner?,

@@ -162,18 +162,16 @@ fun SwipeActions(
     )
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .anchoredDraggable(
-                state = state,
-                orientation = Orientation.Horizontal,
-                flingBehavior = flingBehavior,
-            ),
+        modifier = Modifier.anchoredDraggable(
+            state = state,
+            orientation = Orientation.Horizontal,
+            flingBehavior = flingBehavior,
+        ),
     ) {
         if (direction != SwipeAnchor.Initial) {
             Box(
                 Modifier
-                    .fillMaxSize()
+                    .matchParentSize()
                     .background(config.background),
             ) {
                 Box(

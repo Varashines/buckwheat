@@ -4,7 +4,7 @@ import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.base.BottomSheetWrapper
 import com.danilkinkin.buckwheat.data.AppViewModel
 import com.danilkinkin.buckwheat.editor.EDITOR_SHEET

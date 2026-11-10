@@ -134,6 +134,7 @@ class SubscriptionCheckWorker(
             .setContentTitle(subscription.name)
             .setContentText(applicationContext.getString(R.string.subscription_due_text, amount, due))
             .setContentIntent(pendingIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()

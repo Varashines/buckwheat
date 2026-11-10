@@ -63,8 +63,8 @@ android {
         applicationId = "com.varashines.eva"
         minSdk = 29
         targetSdk = 36
-        versionCode = 104
-        versionName = "5.30.4-dev"
+        versionCode = 105
+        versionName = "5.30.5-dev"
         testInstrumentationRunner = "com.danilkinkin.buckwheat.CustomTestRunner"
     }
 

@@ -3,19 +3,26 @@ package com.danilkinkin.buckwheat
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import androidx.glance.appwidget.updateAll
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.danilkinkin.buckwheat.subscriptions.SubscriptionCheckWorker
 import com.danilkinkin.buckwheat.ui.applyLauncherIcon
-import com.danilkinkin.buckwheat.widget.extend.ExtendWidgetReceiver
-import com.danilkinkin.buckwheat.widget.minimal.MinimalWidgetReceiver
+import com.danilkinkin.buckwheat.widget.extend.ExtendWidget
+import com.danilkinkin.buckwheat.widget.minimal.MinimalWidget
 import dagger.hilt.android.HiltAndroidApp
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class Application : Application() {
+    private val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onCreate() {
         super.onCreate()
 
@@ -35,8 +42,11 @@ class Application : Application() {
             }
 
             override fun onActivityPaused(activity: Activity) {
-                ExtendWidgetReceiver.requestUpdateData(activity.applicationContext)
-                MinimalWidgetReceiver.requestUpdateData(activity.applicationContext)
+                val context = activity.applicationContext
+                widgetScope.launch {
+                    ExtendWidget().updateAll(context)
+                    MinimalWidget().updateAll(context)
+                }
 
                 // The launcher is not visible while the app is in front, so the alias switch
                 // happens here instead of mid-theme-change. Enabling the new alias before

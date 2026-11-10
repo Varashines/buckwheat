@@ -2,7 +2,6 @@ package com.danilkinkin.buckwheat.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
-import android.content.Intent
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -43,8 +42,6 @@ val LocalAccentColor = compositionLocalOf<ColorProvider> { throw Error("No set")
 abstract class WidgetReceiver : GlanceAppWidgetReceiver() {
 
     companion object {
-        const val UPDATE_ACTION = "updateAction"
-
         val todaySpentPreferenceKey = stringPreferencesKey("today-spent-key")
         val monthSpentPreferenceKey = stringPreferencesKey("month-spent-key")
         val currencyPreferenceKey = stringPreferencesKey("currency-key")
@@ -60,12 +57,6 @@ abstract class WidgetReceiver : GlanceAppWidgetReceiver() {
          * run.
          */
         private val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-        fun requestUpdateData(context: Context, receiverClass: Class<*>) {
-            val intent = Intent(context, receiverClass)
-            intent.action = UPDATE_ACTION
-            context.sendBroadcast(intent)
-        }
     }
 
     @Inject
@@ -79,21 +70,6 @@ abstract class WidgetReceiver : GlanceAppWidgetReceiver() {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
 
         receiverScope.launch { observeData(context) }
-    }
-
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-
-        if (intent.action != UPDATE_ACTION) return
-
-        val pendingResult = goAsync()
-        receiverScope.launch {
-            try {
-                observeData(context)
-            } finally {
-                pendingResult.finish()
-            }
-        }
     }
 
     private suspend fun observeData(context: Context) {

@@ -39,6 +39,27 @@ import com.danilkinkin.buckwheat.export.rememberExportCSV
 import com.danilkinkin.buckwheat.ui.BuckwheatTheme
 import java.time.LocalDate
 
+/** Refuse absurdly large documents instead of risking an OOM on a mistyped export. */
+private fun readBackup(context: android.content.Context, uri: android.net.Uri): String? =
+    runCatching {
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            stream.bufferedReader().use { reader ->
+                val buffer = CharArray(8192)
+                val text = StringBuilder()
+
+                while (true) {
+                    val read = reader.read(buffer)
+                    if (read < 0) break
+
+                    text.append(buffer, 0, read)
+                    if (text.length > 16 * 1024 * 1024) return@runCatching null
+                }
+
+                text.toString()
+            }
+        }
+    }.getOrNull()
+
 @Composable
 fun Settings(
     onTriedWidget: () -> Unit = {},
@@ -85,13 +106,7 @@ fun Settings(
     val importBackupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        val json = uri?.let { selected ->
-            runCatching {
-                context.contentResolver.openInputStream(selected)
-                    ?.bufferedReader()
-                    ?.use { it.readText() }
-            }.getOrNull()
-        }
+        val json = uri?.let { selected -> readBackup(context, selected) }
 
         if (json == null) {
             Toast.makeText(context, backupFailed, Toast.LENGTH_SHORT).show()

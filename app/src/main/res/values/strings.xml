@@ -111,6 +111,9 @@
   <string name="month_expenses_action">Open this month in History</string>
   <string name="by_category">By category</string>
   <string name="by_day">By day</string>
+  <string name="spending_calendar">Spending calendar</string>
+  <string name="heatmap_hint">Darker means more spent</string>
+  <string name="day_spent_description">%1$s, %2$s spent</string>
   <string name="year_overview">Year overview</string>
   <string name="best_month">Best %1$s · %2$s</string>
   <string name="lowest_month">Lowest %1$s · %2$s</string>

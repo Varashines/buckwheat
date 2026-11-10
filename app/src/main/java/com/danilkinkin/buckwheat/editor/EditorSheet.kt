@@ -1,7 +1,10 @@
 package com.danilkinkin.buckwheat.editor
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.R
 import com.danilkinkin.buckwheat.base.CategoryPicker
-import com.danilkinkin.buckwheat.base.LocalBottomSheetScrollState
 import com.danilkinkin.buckwheat.base.MinimalTextField
 import com.danilkinkin.buckwheat.data.AppViewModel
 import com.danilkinkin.buckwheat.data.SpendsViewModel
@@ -134,10 +136,7 @@ fun EditorSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            // The sheet can grow past the top of the screen when the keyboard is open. The
-            // wrapper reports the status-bar overlap; without this the tab row sits under the
-            // clock and system icons.
-            .padding(top = LocalBottomSheetScrollState.current.topPadding)
+            .fillMaxHeight()
             .imePadding()
             .padding(bottom = 16.dp),
     ) {
@@ -227,6 +226,12 @@ fun EditorSheet(
         }
 
         if (tab == AddTab.EXPENSE) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
             if (mode == EditMode.EDIT) {
                 DateTimeEditPill()
             }
@@ -273,7 +278,9 @@ fun EditorSheet(
                     .padding(top = 12.dp),
             )
 
-            Spacer(Modifier.height(20.dp))
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             Button(
                 onClick = { saveExpense() },
@@ -329,7 +336,9 @@ fun EditorSheet(
                         }
                         onClose()
                     },
-                    modifier = Modifier.padding(horizontal = 24.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 24.dp),
                     onAddCategory = { showAddCategory = true },
                     onMarkPaid = editingSubscription
                         ?.takeIf {

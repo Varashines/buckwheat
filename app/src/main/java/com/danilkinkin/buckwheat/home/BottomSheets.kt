@@ -35,6 +35,7 @@ fun BottomSheets(
 
     BottomSheetWrapper(
         name = EDITOR_SHEET,
+        fillHeight = true,
     ) { state ->
         EditorSheet(
             initialTab = (state.args["tab"] as? String) ?: "expense",

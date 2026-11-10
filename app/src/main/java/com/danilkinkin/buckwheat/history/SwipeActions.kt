@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -157,7 +156,6 @@ fun SwipeActions(
         }
     }
 
-    val restingIconTint = contentColorFor(config.background)
     val iconScale by animateFloatAsState(
         targetValue = if (willDismiss) 1.15f else 1f,
         animationSpec = tween(durationMillis = 150),
@@ -200,9 +198,7 @@ fun SwipeActions(
                     config.icon?.let { icon ->
                         Image(
                             painter = icon,
-                            colorFilter = ColorFilter.tint(
-                                if (willDismiss) config.iconTint else restingIconTint,
-                            ),
+                            colorFilter = ColorFilter.tint(config.iconTint),
                             contentDescription = null,
                         )
                     }

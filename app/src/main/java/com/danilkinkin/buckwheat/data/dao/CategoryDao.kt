@@ -1,6 +1,6 @@
 package com.danilkinkin.buckwheat.data.dao
 
-import androidx.lifecycle.LiveData
+import kotlinx.coroutines.flow.Flow
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
@@ -10,7 +10,7 @@ import com.danilkinkin.buckwheat.data.entities.Category
 @Dao
 interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY name COLLATE NOCASE ASC")
-    fun getAll(): LiveData<List<Category>>
+    fun getAll(): Flow<List<Category>>
 
     @Query("SELECT * FROM categories ORDER BY id ASC")
     suspend fun getAllOnce(): List<Category>

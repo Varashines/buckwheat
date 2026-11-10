@@ -27,7 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -72,15 +72,15 @@ fun EditorSheet(
     editorViewModel: EditorViewModel = hiltViewModel(),
     appViewModel: AppViewModel = hiltViewModel(),
 ) {
-    val mode by editorViewModel.mode.observeAsState(EditMode.ADD)
-    val categories by spendsViewModel.categories.observeAsState(emptyList())
-    val subscriptions by subscriptionsViewModel.subscriptions.observeAsState(emptyList())
+    val mode by editorViewModel.mode.collectAsStateWithLifecycle()
+    val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
+    val subscriptions by subscriptionsViewModel.subscriptions.collectAsStateWithLifecycle()
     val editingSubscription = subscriptionId?.let { id ->
         subscriptions.firstOrNull { it.id == id }
     }
     val isEditingSubscription = subscriptionId != null
-    val selectedCategoryId by editorViewModel.currentCategoryId.observeAsState(null)
-    val comment by editorViewModel.currentComment.observeAsState("")
+    val selectedCategoryId by editorViewModel.currentCategoryId.collectAsStateWithLifecycle()
+    val comment by editorViewModel.currentComment.collectAsStateWithLifecycle()
 
     var tab by remember {
         mutableStateOf(

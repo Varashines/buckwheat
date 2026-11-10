@@ -21,7 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -101,7 +101,7 @@ fun Settings(
         }
     }
 
-    val currency by spendsViewModel.currency.observeAsState(ExtendCurrency.none())
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
     val currencyCaption = when (currency.type) {
         ExtendCurrency.Type.NONE -> stringResource(R.string.currency_none)
         else -> currency.value.orEmpty()

@@ -2,7 +2,7 @@ package com.danilkinkin.buckwheat.editor
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -40,8 +40,8 @@ fun CurrentSpendEditor(
     val localDensity = LocalDensity.current
     val focusManager = LocalFocusManager.current
 
-    val currency by spendsViewModel.currency.observeAsState(ExtendCurrency.none())
-    val mode by editorViewModel.mode.observeAsState(EditMode.ADD)
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
+    val mode by editorViewModel.mode.collectAsStateWithLifecycle()
 
     var spentValue by remember { mutableStateOf("0") }
     var requestFocus by remember { mutableStateOf(true) }
@@ -52,7 +52,9 @@ fun CurrentSpendEditor(
         requestFocus = true
     }
 
-    observeLiveData(editorViewModel.stage) {
+    val stage by editorViewModel.stage.collectAsStateWithLifecycle()
+
+    LaunchedEffect(stage) {
         calculateValues()
     }
 

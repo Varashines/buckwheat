@@ -26,7 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -83,10 +83,10 @@ fun StatsScreen(
     spendsViewModel: SpendsViewModel = hiltViewModel(),
     subscriptionsViewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
-    val spends by spendsViewModel.spends.observeAsState(emptyList())
-    val categories by spendsViewModel.categories.observeAsState(emptyList())
-    val subscriptions by subscriptionsViewModel.subscriptions.observeAsState(emptyList())
-    val currency by spendsViewModel.currency.observeAsState(ExtendCurrency.none())
+    val spends by spendsViewModel.spends.collectAsStateWithLifecycle()
+    val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
+    val subscriptions by subscriptionsViewModel.subscriptions.collectAsStateWithLifecycle()
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
     val categoriesById = remember(categories) { categories.associateBy { it.id } }
 
     val today = LocalDate.now()

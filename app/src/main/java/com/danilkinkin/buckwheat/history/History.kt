@@ -45,7 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -107,9 +107,9 @@ fun History(
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    val spends by spendsViewModel.spends.observeAsState(emptyList())
-    val categories by spendsViewModel.categories.observeAsState(emptyList())
-    val currency = spendsViewModel.currency.observeAsState(initial = ExtendCurrency.none())
+    val spends by spendsViewModel.spends.collectAsStateWithLifecycle()
+    val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
+    val currency = spendsViewModel.currency.collectAsStateWithLifecycle()
 
     var selectedCategoryIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var onlySubscriptions by remember { mutableStateOf(false) }

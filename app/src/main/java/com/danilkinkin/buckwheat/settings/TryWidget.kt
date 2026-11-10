@@ -21,7 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -82,9 +82,9 @@ fun TryWidgetDialog(
         16.dp,
     )
 
-    val spends by spendsViewModel.spends.observeAsState(emptyList())
-    val subscriptions by subscriptionsViewModel.subscriptions.observeAsState(emptyList())
-    val currency by spendsViewModel.currency.observeAsState(ExtendCurrency.none())
+    val spends by spendsViewModel.spends.collectAsStateWithLifecycle()
+    val subscriptions by subscriptionsViewModel.subscriptions.collectAsStateWithLifecycle()
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
 
     val today = Date()
     val currentMonth = YearMonth.now()

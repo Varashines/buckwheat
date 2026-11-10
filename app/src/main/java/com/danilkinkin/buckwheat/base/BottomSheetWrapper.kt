@@ -30,12 +30,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.danilkinkin.buckwheat.LocalWindowInsets
 import com.danilkinkin.buckwheat.data.AppViewModel
 import com.danilkinkin.buckwheat.data.SystemBarState
 import com.danilkinkin.buckwheat.ui.isNightMode
-import com.danilkinkin.buckwheat.util.observeLiveData
 import com.danilkinkin.buckwheat.util.setSystemStyle
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
@@ -58,12 +58,16 @@ fun BottomSheetWrapper(
 ) {
     val coroutineScope = rememberCoroutineScope()
 
-    observeLiveData(appViewModel.sheetStates) { sheets ->
-        if (sheets.containsKey(name)) {
-            state.bindCallback(sheets[name]!!.callback)
-            coroutineScope.launch { state.show(sheets[name]!!.args) }
+    val sheets by appViewModel.sheetStates.collectAsStateWithLifecycle()
+
+    LaunchedEffect(sheets[name]) {
+        val sheet = sheets[name]
+
+        if (sheet != null) {
+            state.bindCallback(sheet.callback)
+            state.show(sheet.args)
         } else if (state.targetValue !== ModalBottomSheetValue.Hidden) {
-            coroutineScope.launch { state.hide() }
+            state.hide()
         }
     }
 

@@ -29,7 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,7 +58,7 @@ fun CategoriesSheet(
     appViewModel: AppViewModel = hiltViewModel(),
     onClose: () -> Unit = {},
 ) {
-    val categories by spendsViewModel.categories.observeAsState(emptyList())
+    val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
     val localBottomSheetScrollState = LocalBottomSheetScrollState.current
     var showAddDialog by remember { mutableStateOf(false) }
     var editingCategory by remember { mutableStateOf<Category?>(null) }

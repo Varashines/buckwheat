@@ -1,13 +1,15 @@
 package com.danilkinkin.buckwheat.data
 
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.danilkinkin.buckwheat.data.entities.Category
 import com.danilkinkin.buckwheat.data.entities.Transaction
 import com.danilkinkin.buckwheat.di.SpendsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,11 +24,17 @@ import javax.inject.Inject
 class SpendsViewModel @Inject constructor(
     private val spendsRepository: SpendsRepository,
 ) : ViewModel() {
-    var spends = spendsRepository.getAllSpends()
-    var categories = spendsRepository.getAllCategories()
-    var currency = spendsRepository.getCurrency().asLiveData()
+    val spends = spendsRepository.getAllSpends()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    var lastRemovedTransaction: MutableLiveData<Transaction> = MutableLiveData()
+    val categories = spendsRepository.getAllCategories()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val currency = spendsRepository.getCurrency()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ExtendCurrency.none())
+
+    private val _lastRemovedTransaction = MutableStateFlow<Transaction?>(null)
+    val lastRemovedTransaction = _lastRemovedTransaction.asStateFlow()
 
     // Spend handling
 
@@ -41,17 +49,22 @@ class SpendsViewModel @Inject constructor(
             spendsRepository.removeSpent(transactionForRemove)
 
             if (!silent) {
-                lastRemovedTransaction.value = transactionForRemove
+                _lastRemovedTransaction.value = transactionForRemove
             }
         }
     }
 
     fun undoRemoveSpent() {
         viewModelScope.launch {
-            lastRemovedTransaction.value?.let {
+            _lastRemovedTransaction.value?.let {
                 spendsRepository.addSpent(it)
             }
+            _lastRemovedTransaction.value = null
         }
+    }
+
+    fun clearLastRemovedTransaction() {
+        _lastRemovedTransaction.value = null
     }
 
     // Categories

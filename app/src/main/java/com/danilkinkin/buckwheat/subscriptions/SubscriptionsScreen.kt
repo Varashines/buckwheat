@@ -30,7 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,11 +71,9 @@ fun SubscriptionsScreen(
     spendsViewModel: SpendsViewModel = hiltViewModel(),
     appViewModel: AppViewModel = hiltViewModel(),
 ) {
-    val subscriptions by subscriptionsViewModel.subscriptions.observeAsState(emptyList())
-    val categories by spendsViewModel.categories.observeAsState(emptyList())
-    val currency by spendsViewModel.currency.observeAsState(
-        com.danilkinkin.buckwheat.data.ExtendCurrency.none()
-    )
+    val subscriptions by subscriptionsViewModel.subscriptions.collectAsStateWithLifecycle()
+    val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
 
     val categoriesById = remember(categories) { categories.associateBy { it.id } }
     val removedMessage = stringResource(R.string.remove_subscription)

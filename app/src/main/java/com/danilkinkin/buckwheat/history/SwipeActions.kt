@@ -1,16 +1,31 @@
 package com.danilkinkin.buckwheat.history
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.*
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -18,24 +33,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.center
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.danilkinkin.buckwheat.R
 import com.danilkinkin.buckwheat.ui.BuckwheatTheme
-import com.danilkinkin.buckwheat.ui.colorEditor
-import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import androidx.compose.ui.unit.min
 
 data class SwipeActionsConfig(
     val threshold: Float,
@@ -57,184 +73,151 @@ val DefaultSwipeActionsConfig = SwipeActionsConfig(
     onDismiss = {},
 )
 
-@OptIn(
-    ExperimentalMaterialApi::class,
-    ExperimentalComposeUiApi::class,
-)
+private enum class SwipeAnchor { EndToStart, Initial, StartToEnd }
+
+/**
+ * Swipe right for the start action, left for the end action.
+ *
+ * This used to be built on Material 2's SwipeToDismiss, which is deprecated. It now drives a
+ * foundation [AnchoredDraggableState] directly, so the drag offsets, thresholds and spring-back
+ * are explicit and the swipe visuals are unchanged.
+ */
 @Composable
 fun SwipeActions(
     modifier: Modifier = Modifier,
     startActionsConfig: SwipeActionsConfig = DefaultSwipeActionsConfig,
     endActionsConfig: SwipeActionsConfig = DefaultSwipeActionsConfig,
-    content: @Composable (DismissState) -> Unit,
+    content: @Composable () -> Unit,
 ) = BoxWithConstraints(modifier) {
-    val width = constraints.maxWidth.toFloat()
+    val width = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+    val haptic = LocalHapticFeedback.current
 
-    var willDismissDirection: DismissDirection? by remember {
-        mutableStateOf(null)
+    val currentStart by rememberUpdatedState(startActionsConfig)
+    val currentEnd by rememberUpdatedState(endActionsConfig)
+
+    val state = remember {
+        AnchoredDraggableState<SwipeAnchor>(
+            initialValue = SwipeAnchor.Initial,
+            confirmValueChange = { target ->
+                when (target) {
+                    SwipeAnchor.StartToEnd -> {
+                        currentStart.onDismiss()
+                        currentStart.stayDismissed
+                    }
+
+                    SwipeAnchor.EndToStart -> {
+                        currentEnd.onDismiss()
+                        currentEnd.stayDismissed
+                    }
+
+                    SwipeAnchor.Initial -> true
+                }
+            },
+        )
     }
 
-    val state = rememberDismissState(
-        confirmStateChange = {
-            if (willDismissDirection == DismissDirection.StartToEnd
-                && it == DismissValue.DismissedToEnd
-            ) {
-                startActionsConfig.onDismiss()
-                startActionsConfig.stayDismissed
-            } else if (willDismissDirection == DismissDirection.EndToStart &&
-                it == DismissValue.DismissedToStart
-            ) {
-                endActionsConfig.onDismiss()
-                endActionsConfig.stayDismissed
-            } else {
-                false
-            }
-        }
+    val flingBehavior = AnchoredDraggableDefaults.flingBehavior(
+        state = state,
+        positionalThreshold = { distance -> distance * currentStart.threshold },
+        animationSpec = tween(durationMillis = 200),
     )
 
-    LaunchedEffect(key1 = Unit, block = {
-        snapshotFlow { state.offset.value }
-            .collect {
-                willDismissDirection = when {
-                    it > width * startActionsConfig.threshold -> DismissDirection.StartToEnd
-                    it < -width * endActionsConfig.threshold -> DismissDirection.EndToStart
-                    else -> null
-                }
-            }
-    })
+    SideEffect {
+        state.updateAnchors(
+            DraggableAnchors {
+                SwipeAnchor.EndToStart at -width
+                SwipeAnchor.Initial at 0f
+                SwipeAnchor.StartToEnd at width
+            },
+            state.settledValue,
+        )
+    }
 
-    val haptic = LocalHapticFeedback.current
-    LaunchedEffect(key1 = willDismissDirection, block = {
-        if (willDismissDirection != null) {
+    val offset = state.offset.takeUnless { it.isNaN() } ?: 0f
+    val direction = when {
+        offset > 0f -> SwipeAnchor.StartToEnd
+        offset < 0f -> SwipeAnchor.EndToStart
+        else -> SwipeAnchor.Initial
+    }
+
+    val config = when (direction) {
+        SwipeAnchor.StartToEnd -> currentStart
+        SwipeAnchor.EndToStart -> currentEnd
+        SwipeAnchor.Initial -> DefaultSwipeActionsConfig
+    }
+
+    val progress = (abs(offset) / width).coerceIn(0f, 1f)
+    val willDismiss = progress > config.threshold
+
+    LaunchedEffect(willDismiss, direction) {
+        if (willDismiss && direction != SwipeAnchor.Initial) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
-    })
-
-    val dismissDirections by remember(startActionsConfig, endActionsConfig) {
-        derivedStateOf {
-            mutableSetOf<DismissDirection>().apply {
-                if (startActionsConfig != DefaultSwipeActionsConfig) add(DismissDirection.StartToEnd)
-                if (endActionsConfig != DefaultSwipeActionsConfig) add(DismissDirection.EndToStart)
-            }
         }
     }
 
-    SwipeToDismiss(
-        state = state,
-        modifier = Modifier,
-        directions = dismissDirections,
-        dismissThresholds = {
-            if (it == DismissDirection.StartToEnd)
-                FractionalThreshold(startActionsConfig.threshold)
-            else FractionalThreshold(endActionsConfig.threshold)
-        },
-        background = {
-            AnimatedContent(
-                targetState = Pair(state.dismissDirection, willDismissDirection != null),
-                transitionSpec = {
-                    fadeIn(
-                        tween(0),
-                        initialAlpha = if (targetState.second) 1f else 0f,
-                    ) togetherWith fadeOut(
-                        tween(0),
-                        targetAlpha = if (targetState.second) .7f else 0f,
-                    )
-                }
-            ) { (direction, willDismiss) ->
-                val revealSize = remember { Animatable(if (willDismiss) 0f else 0f) }
-                val iconSize = remember { Animatable(if (willDismiss) .8f else 1f) }
-                LaunchedEffect(key1 = Unit, block = {
-                    if (willDismiss) {
-                        revealSize.snapTo(0f)
-                        launch {
-                            revealSize.animateTo(1f, animationSpec = tween(400))
-                        }
-                        iconSize.snapTo(.8f)
-                        iconSize.animateTo(
-                            1.25f,
-                            spring(
-                                dampingRatio = Spring.DampingRatioHighBouncy,
-                            )
-                        )
-                        iconSize.animateTo(
-                            1f,
-                            spring(
-                                dampingRatio = Spring.DampingRatioLowBouncy,
-                            )
-                        )
-                    }
-                })
+    val iconScale by animateFloatAsState(
+        targetValue = if (willDismiss) 1.15f else 1f,
+        animationSpec = tween(durationMillis = 150),
+        label = "swipeIcon",
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .anchoredDraggable(
+                state = state,
+                orientation = Orientation.Horizontal,
+                flingBehavior = flingBehavior,
+            ),
+    ) {
+        if (direction != SwipeAnchor.Initial) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(config.background),
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            color = when (direction) {
-                                DismissDirection.StartToEnd -> startActionsConfig.background
-                                DismissDirection.EndToStart -> endActionsConfig.background
-                                else -> Color.Transparent
-                            },
+                        .clip(CirclePath(progress, direction == SwipeAnchor.StartToEnd))
+                        .background(config.backgroundActive),
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(
+                            when (direction) {
+                                SwipeAnchor.StartToEnd -> Alignment.CenterStart
+                                else -> Alignment.CenterEnd
+                            }
                         )
+                        .fillMaxHeight()
+                        .aspectRatio(1f)
+                        .scale(iconScale),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(
-                                CirclePath(
-                                    revealSize.value,
-                                    direction == DismissDirection.StartToEnd
-                                )
-                            )
-                            .background(
-                                color = when (direction) {
-                                    DismissDirection.StartToEnd -> startActionsConfig.backgroundActive
-                                    DismissDirection.EndToStart -> endActionsConfig.backgroundActive
-                                    else -> Color.Transparent
-                                },
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .align(
-                                when (direction) {
-                                    DismissDirection.StartToEnd -> Alignment.CenterStart
-                                    else -> Alignment.CenterEnd
-                                }
-                            )
-                            .fillMaxHeight()
-                            .aspectRatio(1f)
-                            .scale(iconSize.value),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        when (direction) {
-                            DismissDirection.StartToEnd -> {
-                                if (startActionsConfig.icon !== null) {
-                                    Image(
-                                        painter = startActionsConfig.icon,
-                                        colorFilter = ColorFilter.tint(if (willDismiss) startActionsConfig.iconTint else startActionsConfig.backgroundActive),
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-                            DismissDirection.EndToStart -> {
-                                if (endActionsConfig.icon !== null) {
-                                    Image(
-                                        painter = endActionsConfig.icon,
-                                        colorFilter = ColorFilter.tint(if (willDismiss) endActionsConfig.iconTint else endActionsConfig.backgroundActive),
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-                            else -> {}
-                        }
+                    config.icon?.let { icon ->
+                        Image(
+                            painter = icon,
+                            colorFilter = ColorFilter.tint(
+                                if (willDismiss) config.iconTint else config.backgroundActive,
+                            ),
+                            contentDescription = null,
+                        )
                     }
                 }
             }
         }
-    ) {
-        content(state)
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset { IntOffset(offset.roundToInt(), 0) },
+        ) {
+            content()
+        }
     }
 }
-
 
 class CirclePath(private val progress: Float, private val start: Boolean) : Shape {
     override fun createOutline(
@@ -242,15 +225,12 @@ class CirclePath(private val progress: Float, private val start: Boolean) : Shap
         layoutDirection: LayoutDirection,
         density: Density,
     ): Outline {
-
         val origin = Offset(
             x = if (start) size.height / 2 else size.width - size.height / 2,
             y = size.center.y,
         )
 
-        val radius = (sqrt(
-            size.height * size.height + size.width * size.width
-        ) * 1f) * progress
+        val radius = sqrt(size.height * size.height + size.width * size.width) * progress
 
         return Outline.Generic(
             Path().apply {
@@ -265,7 +245,6 @@ class CirclePath(private val progress: Float, private val start: Boolean) : Shap
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class)
 @Preview(widthDp = 300)
 @Composable
 private fun PreviewDefault() {
@@ -278,9 +257,7 @@ private fun PreviewDefault() {
                 iconTint = MaterialTheme.colorScheme.onTertiary,
                 icon = painterResource(R.drawable.ic_edit),
                 stayDismissed = false,
-                onDismiss = {
-
-                }
+                onDismiss = {},
             ),
             endActionsConfig = SwipeActionsConfig(
                 threshold = 0.4f,
@@ -289,73 +266,17 @@ private fun PreviewDefault() {
                 iconTint = MaterialTheme.colorScheme.onError,
                 icon = painterResource(R.drawable.ic_delete_forever),
                 stayDismissed = false,
-                onDismiss = {
-
-                }
+                onDismiss = {},
             ),
-        ) { state ->
-            val size = with(LocalDensity.current) {
-                java.lang.Float.max(
-                    java.lang.Float.min(
-                        16.dp.toPx(),
-                        abs(state.offset.value)
-                    ), 0f
-                ).toDp()
-            }
-
-            val animateCorners by remember {
-                derivedStateOf {
-                    state.offset.value.absoluteValue > 30
-                }
-            }
-            val startCorners by animateDpAsState(
-                targetValue = when {
-                    state.dismissDirection == DismissDirection.StartToEnd &&
-                            animateCorners -> 8.dp
-                    else -> 0.dp
-                }
+        ) {
+            Text(
+                text = "Swipe me",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .padding(24.dp),
             )
-            val endCorners by animateDpAsState(
-                targetValue = when {
-                    state.dismissDirection == DismissDirection.EndToStart &&
-                            animateCorners -> 8.dp
-                    else -> 0.dp
-                }
-            )
-
-            Box(
-                modifier = Modifier.height(IntrinsicSize.Min)
-            ) {
-                androidx.compose.material3.Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            vertical = min(
-                                size / 4f,
-                                4.dp
-                            )
-                        )
-                        .clip(RoundedCornerShape(size)),
-                    color = colorEditor,
-                    shape = RoundedCornerShape(
-                        topStart = startCorners,
-                        bottomStart = startCorners,
-                        topEnd = endCorners,
-                        bottomEnd = endCorners,
-                    ),
-                ) {
-                }
-                Box(
-                    modifier = Modifier.padding(vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "Swipe to dismiss",
-                        modifier = Modifier
-                            .padding(24.dp)
-                            .fillMaxWidth()
-                    )
-                }
-            }
         }
     }
 }

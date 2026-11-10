@@ -1,9 +1,13 @@
 package com.danilkinkin.buckwheat.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -136,6 +140,30 @@ fun Settings(
         }
     }
 
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            setDigestEnabled(true)
+        } else {
+            AppToast.show(context.getString(R.string.notifications_disabled))
+        }
+    }
+
+    fun enableDigest() {
+        val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) != PackageManager.PERMISSION_GRANTED
+
+        if (needsPermission) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            setDigestEnabled(true)
+        }
+    }
+
     val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
     val currencyCaption = when (currency.type) {
         ExtendCurrency.Type.NONE -> stringResource(R.string.currency_none)
@@ -183,11 +211,15 @@ fun Settings(
                         icon = painterResource(R.drawable.ic_analytics),
                         text = stringResource(R.string.weekly_digest),
                         description = stringResource(R.string.weekly_digest_description),
-                        onClick = { setDigestEnabled(!digestEnabled) },
+                        onClick = {
+                            if (digestEnabled) setDigestEnabled(false) else enableDigest()
+                        },
                         endContent = {
                             Switch(
                                 checked = digestEnabled,
-                                onCheckedChange = { setDigestEnabled(it) },
+                                onCheckedChange = { enabled ->
+                                    if (enabled) enableDigest() else setDigestEnabled(false)
+                                },
                             )
                         },
                     )

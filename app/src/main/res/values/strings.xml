@@ -76,6 +76,7 @@
   <string name="weekly_digest_title">Your week in review</string>
   <string name="weekly_digest_text">%1$s across %2$d expenses</string>
   <string name="weekly_digest_top">Top: %1$s %2$s</string>
+  <string name="notifications_disabled">Notifications are disabled for Khata</string>
   <string name="backup_restored_summary">Restored %1$d expenses, %2$d subscriptions, %3$d categories</string>
   <string name="theme_label">Theme</string>
   <string name="theme_light">Light</string>

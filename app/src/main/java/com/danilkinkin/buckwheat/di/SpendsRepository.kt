@@ -231,7 +231,7 @@ class SpendsRepository @Inject constructor(
         )
     }
 
-    suspend fun restoreBackup(json: String) {
+    suspend fun restoreBackup(json: String): BackupCodec.Backup {
         val backup = BackupCodec.decode(json)
 
         withContext(Dispatchers.IO) {
@@ -247,6 +247,8 @@ class SpendsRepository @Inject constructor(
                 priceChangeDao.insertAll(backup.priceChanges)
             }
         }
+
+        return backup
     }
 
     // Spends

@@ -1,5 +1,10 @@
 package com.danilkinkin.buckwheat.home
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -84,6 +89,7 @@ fun HomeScreen(
     subscriptionsViewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val loaded by spendsViewModel.loaded.collectAsStateWithLifecycle()
     val spends by spendsViewModel.spends.collectAsStateWithLifecycle()
     val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
     val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
@@ -197,6 +203,11 @@ fun HomeScreen(
                     .weight(1f),
                 contentPadding = PaddingValues(bottom = 104.dp),
             ) {
+                if (!loaded) {
+                    item("skeleton") {
+                        HomeSkeleton()
+                    }
+                } else {
                 item("upcoming") {
                     SectionTitle(
                         title = stringResource(R.string.upcoming),
@@ -275,6 +286,7 @@ fun HomeScreen(
                         }
                     }
                 }
+                }
             }
         }
 
@@ -289,6 +301,35 @@ fun HomeScreen(
             Icon(
                 painter = painterResource(R.drawable.ic_add),
                 contentDescription = stringResource(R.string.add_expense),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeSkeleton(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "homeSkeleton")
+    val alpha by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "homeSkeletonAlpha",
+    )
+
+    Column(
+        modifier = modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        repeat(3) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(96.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = alpha)),
             )
         }
     }

@@ -8,9 +8,18 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.danilkinkin.buckwheat.subscriptions.SubscriptionCheckWorker
+import com.danilkinkin.buckwheat.di.SpendsRepository
+import com.danilkinkin.buckwheat.ui.TodayShortcut
 import com.danilkinkin.buckwheat.ui.applyLauncherIcon
 import com.danilkinkin.buckwheat.widget.extend.ExtendWidget
 import com.danilkinkin.buckwheat.widget.minimal.MinimalWidget
+import com.danilkinkin.buckwheat.data.ExtendCurrency
+import com.danilkinkin.buckwheat.util.isSameDay
+import com.danilkinkin.buckwheat.util.numberFormat
+import kotlinx.coroutines.flow.first
+import java.math.BigDecimal
+import java.util.Date
+import javax.inject.Inject
 import dagger.hilt.android.HiltAndroidApp
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -21,6 +30,9 @@ import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class Application : Application() {
+    @Inject
+    lateinit var spendsRepository: SpendsRepository
+
     private val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -46,6 +58,22 @@ class Application : Application() {
                 widgetScope.launch {
                     ExtendWidget().updateAll(context)
                     MinimalWidget().updateAll(context)
+
+                    val spends = runCatching {
+                        spendsRepository.getAllSpends().first()
+                    }.getOrDefault(emptyList())
+                    val currency = runCatching {
+                        spendsRepository.getCurrency().first()
+                    }.getOrDefault(ExtendCurrency.none())
+                    val today = Date()
+                    val total = spends
+                        .filter { isSameDay(it.date, today) }
+                        .fold(BigDecimal.ZERO) { sum, spend -> sum + spend.value }
+
+                    TodayShortcut.update(
+                        context = context,
+                        total = numberFormat(context, total, currency),
+                    )
                 }
 
                 // The launcher is not visible while the app is in front, so the alias switch

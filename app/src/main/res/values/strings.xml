@@ -63,6 +63,13 @@
   <string name="use_last">Previous values</string>
   <string name="days_left">Days left</string>
   <string name="settings_title">Settings</string>
+  <string name="settings_appearance">Appearance</string>
+  <string name="shortcut_add_expense">Add expense</string>
+  <string name="shortcut_history">History</string>
+  <string name="shortcut_today">Today</string>
+  <string name="settings_organise">Organise</string>
+  <string name="settings_data">Data</string>
+  <string name="backup_restored_summary">Restored %1$d expenses, %2$d subscriptions, %3$d categories</string>
   <string name="theme_label">Theme</string>
   <string name="theme_light">Light</string>
   <string name="theme_dark">Dark</string>

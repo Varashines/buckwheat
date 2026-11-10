@@ -48,12 +48,16 @@ val LocalWindowInsets = compositionLocalOf { PaddingValues(0.dp) }
 class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN_ADD = "com.varashines.eva.OPEN_ADD"
+        const val EXTRA_SHORTCUT = "shortcut"
+        const val ROUTE_ADD = "add"
+        const val ROUTE_HISTORY = "history"
+        const val ROUTE_TODAY = "today"
     }
 
     // Broke tests. Set to true for tests
     private val isDone: MutableState<Boolean> = mutableStateOf(false)
     private val isReady: MutableState<Boolean> = mutableStateOf(false)
-    private val addRequested = mutableStateOf(false)
+    private val launchRequest = mutableStateOf<String?>(null)
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,10 +73,7 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
 
-        if (intent?.getBooleanExtra(EXTRA_OPEN_ADD, false) == true) {
-            addRequested.value = true
-            intent.removeExtra(EXTRA_OPEN_ADD)
-        }
+        handleLaunchIntent(intent)
 
         setContent {
             val localContext = LocalContext.current
@@ -107,8 +108,8 @@ class MainActivity : ComponentActivity() {
                         ) {
                             MainScreen(
                                 activityResultRegistryOwner = activityResultRegistryOwner,
-                                openAddRequest = addRequested.value,
-                                onAddRequestHandled = { addRequested.value = false },
+                                launchRequest = launchRequest.value,
+                                onLaunchRequestHandled = { launchRequest.value = null },
                             )
 
                             LaunchedEffect(Unit) {
@@ -126,9 +127,24 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
 
+        handleLaunchIntent(intent)
+    }
+
+    private fun handleLaunchIntent(intent: Intent?) {
+        if (intent == null) return
+
         if (intent.getBooleanExtra(EXTRA_OPEN_ADD, false)) {
-            addRequested.value = true
+            launchRequest.value = ROUTE_ADD
             intent.removeExtra(EXTRA_OPEN_ADD)
+            return
+        }
+
+        intent.getStringExtra(EXTRA_SHORTCUT)?.let { route ->
+            launchRequest.value = when (route) {
+                ROUTE_ADD, ROUTE_HISTORY, ROUTE_TODAY -> route
+                else -> null
+            }
+            intent.removeExtra(EXTRA_SHORTCUT)
         }
     }
 }

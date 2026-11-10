@@ -4,10 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startActivity
 import com.danilkinkin.buckwheat.R
+import com.danilkinkin.buckwheat.base.AppToast
 import androidx.core.net.toUri
 
 fun openInBrowser(context: Context, link: String) {
@@ -25,13 +25,7 @@ fun openInBrowser(context: Context, link: String) {
 
         clipboard.setPrimaryClip(ClipData.newPlainText("url", link))
 
-        Toast
-            .makeText(
-                context,
-                context.getString(R.string.copy_in_clipboard),
-                Toast.LENGTH_LONG
-            )
-            .show()
+        AppToast.show(context.getString(R.string.copy_in_clipboard))
     }
 }
 
@@ -52,12 +46,6 @@ fun sendEmail(
         startActivity(context, intent, null)
     } catch (e: Exception) {
         e.printStackTrace()
-        Toast
-            .makeText(
-                context,
-                context.getString(R.string.not_found_email_clients),
-                Toast.LENGTH_LONG
-            )
-            .show()
+        AppToast.show(context.getString(R.string.not_found_email_clients))
     }
 }

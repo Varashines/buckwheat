@@ -1,11 +1,14 @@
 package com.danilkinkin.buckwheat.settings
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -31,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.LocalWindowInsets
 import com.danilkinkin.buckwheat.R
+import com.danilkinkin.buckwheat.base.AppToast
 import com.danilkinkin.buckwheat.base.ButtonRow
 import com.danilkinkin.buckwheat.base.LocalBottomSheetScrollState
 import com.danilkinkin.buckwheat.data.ExtendCurrency
@@ -95,11 +99,7 @@ fun Settings(
                 }
             }.isSuccess
 
-            Toast.makeText(
-                context,
-                if (success) backupExported else backupFailed,
-                Toast.LENGTH_SHORT,
-            ).show()
+            AppToast.show(if (success) backupExported else backupFailed)
         }
     }
 
@@ -109,7 +109,7 @@ fun Settings(
         val json = uri?.let { selected -> readBackup(context, selected) }
 
         if (json == null) {
-            Toast.makeText(context, backupFailed, Toast.LENGTH_SHORT).show()
+            AppToast.show(backupFailed)
         } else {
             pendingRestore = json
             confirmRestore = true
@@ -134,51 +134,64 @@ fun Settings(
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = navigationBarHeight)
             ) {
-                ThemeSwitcher()
-                LangSwitcher()
-                ButtonRow(
-                    icon = painterResource(R.drawable.ic_currency),
-                    text = stringResource(R.string.in_currency_label),
-                    endCaption = currencyCaption,
-                    onClick = onOpenCurrency,
-                )
-                ButtonRow(
-                    icon = painterResource(R.drawable.ic_label),
-                    text = stringResource(R.string.categories_title),
-                    onClick = onOpenCategories,
-                )
-                ButtonRow(
-                    icon = painterResource(R.drawable.ic_balance_wallet),
-                    text = stringResource(R.string.subscriptions_title),
-                    onClick = onOpenSubscriptions,
-                )
-                TryWidget(onTried = {
-                    onTriedWidget()
-                })
-                ButtonRow(
-                    icon = painterResource(R.drawable.ic_file_download),
-                    text = stringResource(R.string.export_to_csv),
-                    onClick = { exportCSVLaunch() },
-                )
-                ButtonRow(
-                    icon = painterResource(R.drawable.ic_backup),
-                    text = stringResource(R.string.export_backup),
-                    onClick = {
-                        spendsViewModel.exportBackup { json ->
-                            pendingBackup = json
-                            exportBackupLauncher.launch("eva-backup-${LocalDate.now()}.json")
-                        }
-                    },
-                )
-                ButtonRow(
-                    icon = painterResource(R.drawable.ic_restore),
-                    text = stringResource(R.string.restore_backup),
-                    onClick = {
-                        importBackupLauncher.launch(
-                            arrayOf("application/json", "text/plain", "application/octet-stream")
-                        )
-                    },
-                )
+                SettingsSection(stringResource(R.string.settings_appearance)) {
+                    ThemeSwitcher()
+                    LangSwitcher()
+                    ButtonRow(
+                        icon = painterResource(R.drawable.ic_currency),
+                        text = stringResource(R.string.in_currency_label),
+                        endCaption = currencyCaption,
+                        onClick = onOpenCurrency,
+                    )
+                }
+
+                SettingsSection(stringResource(R.string.settings_organise)) {
+                    ButtonRow(
+                        icon = painterResource(R.drawable.ic_label),
+                        text = stringResource(R.string.categories_title),
+                        onClick = onOpenCategories,
+                    )
+                    ButtonRow(
+                        icon = painterResource(R.drawable.ic_balance_wallet),
+                        text = stringResource(R.string.subscriptions_title),
+                        onClick = onOpenSubscriptions,
+                    )
+                }
+
+                SettingsSection(stringResource(R.string.settings_data)) {
+                    TryWidget(onTried = {
+                        onTriedWidget()
+                    })
+                    ButtonRow(
+                        icon = painterResource(R.drawable.ic_file_download),
+                        text = stringResource(R.string.export_to_csv),
+                        onClick = { exportCSVLaunch() },
+                    )
+                    ButtonRow(
+                        icon = painterResource(R.drawable.ic_backup),
+                        text = stringResource(R.string.export_backup),
+                        onClick = {
+                            spendsViewModel.exportBackup { json ->
+                                pendingBackup = json
+                                exportBackupLauncher.launch("eva-backup-${LocalDate.now()}.json")
+                            }
+                        },
+                    )
+                    ButtonRow(
+                        icon = painterResource(R.drawable.ic_restore),
+                        text = stringResource(R.string.restore_backup),
+                        onClick = {
+                            importBackupLauncher.launch(
+                                arrayOf(
+                                    "application/json",
+                                    "text/plain",
+                                    "application/octet-stream",
+                                )
+                            )
+                        },
+                    )
+                }
+
                 Spacer(Modifier.height(8.dp))
                 About(
                     Modifier.padding(start = 16.dp, end = 16.dp),
@@ -203,12 +216,19 @@ fun Settings(
                         pendingRestore = null
 
                         if (json != null) {
-                            spendsViewModel.restoreBackup(json) { success ->
-                                Toast.makeText(
-                                    context,
-                                    if (success) backupRestored else backupFailed,
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                            spendsViewModel.restoreBackup(json) { backup ->
+                                AppToast.show(
+                                    if (backup != null) {
+                                        context.resources.getString(
+                                            R.string.backup_restored_summary,
+                                            backup.transactions.size,
+                                            backup.subscriptions.size,
+                                            backup.categories.size,
+                                        )
+                                    } else {
+                                        backupFailed
+                                    }
+                                )
                             }
                         }
                     },
@@ -227,6 +247,37 @@ fun Settings(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    label: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 6.dp),
+        )
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            border = BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(content = content)
+        }
     }
 }
 

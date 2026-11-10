@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
         const val ROUTE_ADD = "add"
         const val ROUTE_HISTORY = "history"
         const val ROUTE_TODAY = "today"
+        const val ROUTE_STATS = "stats"
     }
 
     // Broke tests. Set to true for tests
@@ -141,7 +142,7 @@ class MainActivity : ComponentActivity() {
 
         intent.getStringExtra(EXTRA_SHORTCUT)?.let { route ->
             launchRequest.value = when (route) {
-                ROUTE_ADD, ROUTE_HISTORY, ROUTE_TODAY -> route
+                ROUTE_ADD, ROUTE_HISTORY, ROUTE_TODAY, ROUTE_STATS -> route
                 else -> null
             }
             intent.removeExtra(EXTRA_SHORTCUT)

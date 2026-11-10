@@ -130,6 +130,10 @@ fun MainScreen(
                 historyReturn = AppScreen.HOME
                 screen = AppScreen.HISTORY
             }
+
+            MainActivity.ROUTE_STATS -> {
+                screen = AppScreen.STATS
+            }
         }
 
         if (launchRequest != null) onLaunchRequestHandled()

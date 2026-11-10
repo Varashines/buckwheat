@@ -17,12 +17,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
@@ -38,9 +40,15 @@ import com.danilkinkin.buckwheat.base.AppToast
 import com.danilkinkin.buckwheat.base.ButtonRow
 import com.danilkinkin.buckwheat.base.LocalBottomSheetScrollState
 import com.danilkinkin.buckwheat.data.ExtendCurrency
+import com.danilkinkin.buckwheat.data.digestEnabledKey
+import com.danilkinkin.buckwheat.digest.DigestScheduler
+import com.danilkinkin.buckwheat.settingsDataStore
 import com.danilkinkin.buckwheat.data.SpendsViewModel
 import com.danilkinkin.buckwheat.export.rememberExportCSV
 import com.danilkinkin.buckwheat.ui.BuckwheatTheme
+import androidx.datastore.preferences.core.edit
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /** Refuse absurdly large documents instead of risking an OOM on a mistyped export. */
@@ -116,6 +124,18 @@ fun Settings(
         }
     }
 
+    val coroutineScope = rememberCoroutineScope()
+    val digestEnabled by context.settingsDataStore.data
+        .map { it[digestEnabledKey] ?: false }
+        .collectAsStateWithLifecycle(initialValue = false)
+
+    fun setDigestEnabled(enabled: Boolean) {
+        coroutineScope.launch {
+            context.settingsDataStore.edit { it[digestEnabledKey] = enabled }
+            if (enabled) DigestScheduler.schedule(context) else DigestScheduler.cancel(context)
+        }
+    }
+
     val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
     val currencyCaption = when (currency.type) {
         ExtendCurrency.Type.NONE -> stringResource(R.string.currency_none)
@@ -155,6 +175,21 @@ fun Settings(
                         icon = painterResource(R.drawable.ic_balance_wallet),
                         text = stringResource(R.string.subscriptions_title),
                         onClick = onOpenSubscriptions,
+                    )
+                }
+
+                SettingsSection(stringResource(R.string.settings_notifications)) {
+                    ButtonRow(
+                        icon = painterResource(R.drawable.ic_analytics),
+                        text = stringResource(R.string.weekly_digest),
+                        description = stringResource(R.string.weekly_digest_description),
+                        onClick = { setDigestEnabled(!digestEnabled) },
+                        endContent = {
+                            Switch(
+                                checked = digestEnabled,
+                                onCheckedChange = { setDigestEnabled(it) },
+                            )
+                        },
                     )
                 }
 

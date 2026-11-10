@@ -16,7 +16,8 @@ class ShortcutRouter : Activity() {
         val route = intent?.getStringExtra(MainActivity.EXTRA_SHORTCUT)
         if (route == MainActivity.ROUTE_ADD ||
             route == MainActivity.ROUTE_HISTORY ||
-            route == MainActivity.ROUTE_TODAY
+            route == MainActivity.ROUTE_TODAY ||
+            route == MainActivity.ROUTE_STATS
         ) {
             startActivity(
                 Intent(this, MainActivity::class.java)

@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
@@ -30,7 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +38,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import com.danilkinkin.buckwheat.R
@@ -60,7 +59,6 @@ import com.danilkinkin.buckwheat.util.numberFormat
 import com.danilkinkin.buckwheat.util.prettyDate
 import com.danilkinkin.buckwheat.util.toLocalDate
 
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun SubscriptionsScreen(
     onBack: () -> Unit = {},
@@ -71,11 +69,9 @@ fun SubscriptionsScreen(
     spendsViewModel: SpendsViewModel = hiltViewModel(),
     appViewModel: AppViewModel = hiltViewModel(),
 ) {
-    val subscriptions by subscriptionsViewModel.subscriptions.observeAsState(emptyList())
-    val categories by spendsViewModel.categories.observeAsState(emptyList())
-    val currency by spendsViewModel.currency.observeAsState(
-        com.danilkinkin.buckwheat.data.ExtendCurrency.none()
-    )
+    val subscriptions by subscriptionsViewModel.subscriptions.collectAsStateWithLifecycle()
+    val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
 
     val categoriesById = remember(categories) { categories.associateBy { it.id } }
     val removedMessage = stringResource(R.string.remove_subscription)

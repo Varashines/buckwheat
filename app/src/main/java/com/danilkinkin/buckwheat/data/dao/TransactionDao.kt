@@ -1,6 +1,6 @@
 package com.danilkinkin.buckwheat.data.dao
 
-import androidx.lifecycle.LiveData
+import kotlinx.coroutines.flow.Flow
 import androidx.room.*
 import com.danilkinkin.buckwheat.data.entities.Transaction
 import com.danilkinkin.buckwheat.data.entities.TransactionType
@@ -10,10 +10,10 @@ import java.util.Date
 @Dao
 interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY date ASC")
-    fun getAll(): LiveData<List<Transaction>>
+    fun getAll(): Flow<List<Transaction>>
 
     @Query("SELECT * FROM transactions WHERE type = :type ORDER BY date ASC")
-    fun getAll(type: TransactionType): LiveData<List<Transaction>>
+    fun getAll(type: TransactionType): Flow<List<Transaction>>
 
     @Query("SELECT * FROM transactions WHERE uid = :uid")
     fun getById(uid: Int): Transaction?

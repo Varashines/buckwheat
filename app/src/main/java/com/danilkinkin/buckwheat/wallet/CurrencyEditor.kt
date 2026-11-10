@@ -36,7 +36,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,7 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.LocalWindowInsets
 import com.danilkinkin.buckwheat.R
 import com.danilkinkin.buckwheat.base.LocalBottomSheetScrollState
@@ -86,7 +86,7 @@ fun CurrencyEditor(
 ) {
     val localBottomSheetScrollState = LocalBottomSheetScrollState.current
 
-    val currency by spendsViewModel.currency.observeAsState(ExtendCurrency.none())
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
     var screen by remember { mutableStateOf(CurrencyScreen.HOME) }
     var showCustomEditor by remember { mutableStateOf(false) }

@@ -1,10 +1,12 @@
 package com.danilkinkin.buckwheat.editor
 
-import androidx.lifecycle.*
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
 import com.danilkinkin.buckwheat.data.entities.Transaction
 import com.danilkinkin.buckwheat.util.join
 import com.danilkinkin.buckwheat.util.tryConvertStringToNumber
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.Date
@@ -17,15 +19,15 @@ enum class EditStage { IDLE, CREATING_SPENT, EDIT_SPENT, COMMITTING_SPENT }
 class EditorViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    var mode = MutableLiveData(EditMode.ADD)
-    var stage = MutableLiveData(EditStage.IDLE)
+    var mode = MutableStateFlow(EditMode.ADD)
+    var stage = MutableStateFlow(EditStage.IDLE)
 
     var editedTransaction: Transaction? = null
     var currentDate: Date = Date()
     var currentSpent: BigDecimal = BigDecimal.ZERO
-    var currentComment = MutableLiveData("")
-    var currentCategoryId = MutableLiveData<Int?>(null)
-    var rawSpentValue = MutableLiveData("")
+    var currentComment = MutableStateFlow("")
+    var currentCategoryId = MutableStateFlow<Int?>(null)
+    var rawSpentValue = MutableStateFlow("")
 
     fun startEditingSpent(transaction: Transaction) {
         editedTransaction = transaction

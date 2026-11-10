@@ -3,7 +3,7 @@ package com.danilkinkin.buckwheat.di
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.lifecycle.LiveData
+import kotlinx.coroutines.flow.Flow
 import androidx.lifecycle.map
 import androidx.room.withTransaction
 import com.danilkinkin.buckwheat.budgetDataStore
@@ -49,9 +49,9 @@ class SpendsRepository @Inject constructor(
     private val priceChangeDao: SubscriptionPriceChangeDao,
     private val database: DatabaseModule,
 ) {
-    fun getAllSpends(): LiveData<List<Transaction>> = transactionDao.getAll(TransactionType.SPENT)
+    fun getAllSpends(): Flow<List<Transaction>> = transactionDao.getAll(TransactionType.SPENT)
 
-    fun getAllCategories(): LiveData<List<Category>> =
+    fun getAllCategories(): Flow<List<Category>> =
         categoryDao.getAll().map { it.sortedForDisplay() }
 
     suspend fun addCategory(name: String, icon: String, color: Long): Long {
@@ -94,7 +94,7 @@ class SpendsRepository @Inject constructor(
 
     // Subscriptions
 
-    fun getAllSubscriptions(): LiveData<List<Subscription>> = subscriptionDao.getAll()
+    fun getAllSubscriptions(): Flow<List<Subscription>> = subscriptionDao.getAll()
 
     suspend fun addSubscription(
         name: String,
@@ -139,7 +139,7 @@ class SpendsRepository @Inject constructor(
         }
     }
 
-    fun getAllPriceChanges(): LiveData<List<SubscriptionPriceChange>> =
+    fun getAllPriceChanges(): Flow<List<SubscriptionPriceChange>> =
         priceChangeDao.getAll()
 
     suspend fun deleteSubscription(subscriptionId: Int) {

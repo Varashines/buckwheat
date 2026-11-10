@@ -99,8 +99,8 @@ abstract class WidgetReceiver : GlanceAppWidgetReceiver() {
     private suspend fun observeData(context: Context) {
         val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(glanceAppWidget.javaClass)
 
-        val spends = databaseRepository.getAllSpends().asFlow().first()
-        val subscriptions = databaseRepository.getAllSubscriptions().asFlow().first()
+        val spends = databaseRepository.getAllSpends().first()
+        val subscriptions = databaseRepository.getAllSubscriptions().first()
         val currency = databaseRepository.getCurrency().first()
 
         val today = Date()

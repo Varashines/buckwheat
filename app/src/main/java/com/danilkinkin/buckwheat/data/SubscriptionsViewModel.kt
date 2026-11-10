@@ -6,6 +6,8 @@ import com.danilkinkin.buckwheat.data.entities.Subscription
 import com.danilkinkin.buckwheat.data.entities.SubscriptionPeriod
 import com.danilkinkin.buckwheat.di.SpendsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.util.Date
@@ -15,8 +17,11 @@ import javax.inject.Inject
 class SubscriptionsViewModel @Inject constructor(
     private val spendsRepository: SpendsRepository,
 ) : ViewModel() {
-    var subscriptions = spendsRepository.getAllSubscriptions()
-    var priceChanges = spendsRepository.getAllPriceChanges()
+    val subscriptions = spendsRepository.getAllSubscriptions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val priceChanges = spendsRepository.getAllPriceChanges()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun add(
         name: String,

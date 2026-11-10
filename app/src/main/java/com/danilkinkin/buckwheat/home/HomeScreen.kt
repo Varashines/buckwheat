@@ -28,7 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
@@ -42,7 +42,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.R
 import com.danilkinkin.buckwheat.data.ServiceCatalog
 import com.danilkinkin.buckwheat.data.SpendsViewModel
@@ -84,12 +84,10 @@ fun HomeScreen(
     subscriptionsViewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val spends by spendsViewModel.spends.observeAsState(emptyList())
-    val categories by spendsViewModel.categories.observeAsState(emptyList())
-    val currency by spendsViewModel.currency.observeAsState(
-        com.danilkinkin.buckwheat.data.ExtendCurrency.none()
-    )
-    val subscriptions by subscriptionsViewModel.subscriptions.observeAsState(emptyList())
+    val spends by spendsViewModel.spends.collectAsStateWithLifecycle()
+    val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
+    val subscriptions by subscriptionsViewModel.subscriptions.collectAsStateWithLifecycle()
 
     val currentMonth = YearMonth.from(LocalDate.now())
     val todayDate = LocalDate.now()

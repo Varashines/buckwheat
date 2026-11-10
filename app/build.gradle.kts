@@ -63,8 +63,8 @@ android {
         applicationId = "com.varashines.eva"
         minSdk = 29
         targetSdk = 36
-        versionCode = 99
-        versionName = "5.29.1-dev"
+        versionCode = 103
+        versionName = "5.30.3-dev"
         testInstrumentationRunner = "com.danilkinkin.buckwheat.CustomTestRunner"
     }
 
@@ -159,9 +159,7 @@ dependencies {
     implementation(libs.androidx.compose.material3.window.size)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.runtime.livedata)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.room.runtime)
@@ -169,7 +167,7 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.preview)
     implementation(libs.androidx.core.splashscreen)

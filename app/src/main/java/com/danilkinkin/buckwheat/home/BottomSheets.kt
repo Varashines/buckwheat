@@ -1,10 +1,9 @@
 package com.danilkinkin.buckwheat.home
 
 import androidx.activity.result.ActivityResultRegistryOwner
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.base.BottomSheetWrapper
 import com.danilkinkin.buckwheat.data.AppViewModel
 import com.danilkinkin.buckwheat.editor.EDITOR_SHEET
@@ -27,7 +26,6 @@ import kotlinx.coroutines.launch
  * The app's sheets, declared in one place so stacking order is explicit: later sheets draw above
  * earlier ones. Only sheets reachable from the current UI are kept here.
  */
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun BottomSheets(
     activityResultRegistryOwner: ActivityResultRegistryOwner?,
@@ -37,6 +35,7 @@ fun BottomSheets(
 
     BottomSheetWrapper(
         name = EDITOR_SHEET,
+        fillHeight = true,
     ) { state ->
         EditorSheet(
             initialTab = (state.args["tab"] as? String) ?: "expense",

@@ -3,10 +3,10 @@ package com.danilkinkin.buckwheat.data
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -57,13 +57,13 @@ class AppViewModel @Inject constructor() : ViewModel() {
 
     var statusBarStack: MutableList<() -> SystemBarState> = emptyList<() -> SystemBarState>().toMutableList()
 
-    var sheetStates: MutableLiveData<Map<String, PathState>> = MutableLiveData(emptyMap())
+    var sheetStates = MutableStateFlow<Map<String, PathState>>(emptyMap())
 
     fun openSheet(state: PathState) {
-        sheetStates.value = sheetStates.value!!.plus(Pair(state.name, state))
+        sheetStates.value = sheetStates.value.plus(state.name to state)
     }
 
     fun closeSheet(name: String) {
-        sheetStates.value = sheetStates.value!!.minus(name)
+        sheetStates.value = sheetStates.value.minus(name)
     }
 }

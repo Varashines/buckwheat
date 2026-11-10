@@ -168,10 +168,14 @@ fun SubscriptionForm(
     }
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+        modifier = modifier.fillMaxWidth(),
     ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
         ServicePicker(
             selectedId = serviceId,
             onSelect = { picked ->
@@ -394,6 +398,7 @@ fun SubscriptionForm(
             TextButton(onClick = onSkipCycle) {
                 Text(stringResource(R.string.skip_renewal))
             }
+        }
         }
 
         if (onMarkPaid != null) {

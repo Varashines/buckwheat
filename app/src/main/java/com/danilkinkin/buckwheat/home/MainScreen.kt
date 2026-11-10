@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,7 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.danilkinkin.buckwheat.R
 import com.danilkinkin.buckwheat.base.SwipeableSnackbarHost
@@ -49,7 +50,6 @@ import com.danilkinkin.buckwheat.subscriptions.SubscriptionInsightsScreen
 import com.danilkinkin.buckwheat.subscriptions.SubscriptionsScreen
 import com.danilkinkin.buckwheat.ui.colorBackground
 import com.danilkinkin.buckwheat.ui.isNightMode
-import com.danilkinkin.buckwheat.util.observeLiveData
 import com.danilkinkin.buckwheat.util.setSystemStyle
 import com.danilkinkin.buckwheat.wallet.CURRENCY_EDITOR
 
@@ -76,7 +76,12 @@ fun MainScreen(
     val snackBarMessage = stringResource(R.string.remove_spent)
     val snackBarAction = stringResource(R.string.remove_spent_undo)
 
-    observeLiveData(spendsViewModel.lastRemovedTransaction) {
+    val lastRemoved by spendsViewModel.lastRemovedTransaction.collectAsStateWithLifecycle()
+
+    LaunchedEffect(lastRemoved) {
+        if (lastRemoved == null) return@LaunchedEffect
+
+        spendsViewModel.clearLastRemovedTransaction()
         appViewModel.showSnackbar(
             message = snackBarMessage,
             actionLabel = snackBarAction,

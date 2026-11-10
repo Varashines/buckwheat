@@ -1,6 +1,6 @@
 package com.danilkinkin.buckwheat.data.dao
 
-import androidx.lifecycle.LiveData
+import kotlinx.coroutines.flow.Flow
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
@@ -9,7 +9,7 @@ import com.danilkinkin.buckwheat.data.entities.SubscriptionPriceChange
 @Dao
 interface SubscriptionPriceChangeDao {
     @Query("SELECT * FROM subscription_price_changes ORDER BY changedAt DESC")
-    fun getAll(): LiveData<List<SubscriptionPriceChange>>
+    fun getAll(): Flow<List<SubscriptionPriceChange>>
 
     @Query("SELECT * FROM subscription_price_changes ORDER BY changedAt DESC")
     suspend fun getAllOnce(): List<SubscriptionPriceChange>

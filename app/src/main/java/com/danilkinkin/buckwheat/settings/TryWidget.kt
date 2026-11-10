@@ -21,7 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,7 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.LocalWindowInsets
 import com.danilkinkin.buckwheat.R
 import com.danilkinkin.buckwheat.base.ButtonRow
@@ -82,9 +82,9 @@ fun TryWidgetDialog(
         16.dp,
     )
 
-    val spends by spendsViewModel.spends.observeAsState(emptyList())
-    val subscriptions by subscriptionsViewModel.subscriptions.observeAsState(emptyList())
-    val currency by spendsViewModel.currency.observeAsState(ExtendCurrency.none())
+    val spends by spendsViewModel.spends.collectAsStateWithLifecycle()
+    val subscriptions by subscriptionsViewModel.subscriptions.collectAsStateWithLifecycle()
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
 
     val today = Date()
     val currentMonth = YearMonth.now()

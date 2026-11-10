@@ -21,14 +21,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.LocalWindowInsets
 import com.danilkinkin.buckwheat.R
 import com.danilkinkin.buckwheat.base.ButtonRow
@@ -101,7 +101,7 @@ fun Settings(
         }
     }
 
-    val currency by spendsViewModel.currency.observeAsState(ExtendCurrency.none())
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
     val currencyCaption = when (currency.type) {
         ExtendCurrency.Type.NONE -> stringResource(R.string.currency_none)
         else -> currency.value.orEmpty()

@@ -29,7 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,7 +44,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danilkinkin.buckwheat.R
 import com.danilkinkin.buckwheat.data.ExtendCurrency
 import com.danilkinkin.buckwheat.data.ServiceCatalog
@@ -80,11 +80,11 @@ fun SubscriptionInsightsScreen(
     subscriptionsViewModel: SubscriptionsViewModel = hiltViewModel(),
     spendsViewModel: SpendsViewModel = hiltViewModel(),
 ) {
-    val subscriptions by subscriptionsViewModel.subscriptions.observeAsState(emptyList())
-    val priceChanges by subscriptionsViewModel.priceChanges.observeAsState(emptyList())
-    val spends by spendsViewModel.spends.observeAsState(emptyList())
-    val categories by spendsViewModel.categories.observeAsState(emptyList())
-    val currency by spendsViewModel.currency.observeAsState(ExtendCurrency.none())
+    val subscriptions by subscriptionsViewModel.subscriptions.collectAsStateWithLifecycle()
+    val priceChanges by subscriptionsViewModel.priceChanges.collectAsStateWithLifecycle()
+    val spends by spendsViewModel.spends.collectAsStateWithLifecycle()
+    val categories by spendsViewModel.categories.collectAsStateWithLifecycle()
+    val currency by spendsViewModel.currency.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val active = remember(subscriptions) { subscriptions.filter { it.active } }

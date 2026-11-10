@@ -129,9 +129,9 @@ fun Settings(
     }
 
     val coroutineScope = rememberCoroutineScope()
-    val digestEnabled by context.settingsDataStore.data
-        .map { it[digestEnabledKey] ?: false }
-        .collectAsStateWithLifecycle(initialValue = false)
+    val digestEnabled by remember {
+        context.settingsDataStore.data.map { it[digestEnabledKey] ?: false }
+    }.collectAsStateWithLifecycle(initialValue = false)
 
     fun setDigestEnabled(enabled: Boolean) {
         coroutineScope.launch {

@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -23,7 +25,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.Dp
@@ -91,26 +92,29 @@ fun BottomSheetWrapper(
     setSystemStyle(
         style = {
             SystemBarState(
-                statusBarColor = Color.Transparent,
-                statusBarDarkIcons = false,
-                navigationBarDarkIcons = !isNightModeNow,
-                navigationBarColor = Color.Transparent,
+                statusBarDarkBackground = isNightModeNow,
+                navigationBarDarkBackground = isNightModeNow,
             )
         },
         key = state.targetValue,
         confirmChange = { state.targetValue !== ModalBottomSheetValue.Hidden },
     )
 
-    val statusBarFillProgress = if (statusBarHeight == 0.dp) {
-        0F
-    } else {
-        with(localDensity) {
-            max(
-                statusBarHeight - state.offset.value.roundToInt().toDp(),
-                0.toDp(),
-            )
-        } / statusBarHeight
-    }.coerceIn(0f, 1f)
+    // The top corner radius follows the drag position. Reading the raw offset here rebuilt a
+    // RoundedCornerShape and recomposed the whole sheet on every frame. Quantised to 5% steps,
+    // the shape is rebuilt a handful of times per drag - indistinguishable over 28dp of travel.
+    val statusBarFillProgress by remember(statusBarHeight) {
+        derivedStateOf {
+            if (statusBarHeight == 0.dp) {
+                0f
+            } else {
+                val remaining = with(localDensity) {
+                    max(statusBarHeight - state.offset.value.roundToInt().toDp(), 0.toDp())
+                }
+                ((remaining / statusBarHeight) * 20f).roundToInt() / 20f
+            }.coerceIn(0f, 1f)
+        }
+    }
 
     val focusManager = LocalFocusManager.current
 
@@ -124,7 +128,7 @@ fun BottomSheetWrapper(
 
     ModalBottomSheetLayout(
         cancelable = cancelable,
-        sheetBackgroundColor = MaterialTheme.colorScheme.surface,
+        sheetBackgroundColor = MaterialTheme.colorScheme.surfaceContainerLow,
         sheetState = state,
         predictiveBackProgress = predictiveBackProgress,
         sheetShape = MaterialTheme.shapes.extraLarge.copy(
@@ -137,10 +141,8 @@ fun BottomSheetWrapper(
             setSystemStyle(
                 style = {
                     SystemBarState(
-                        statusBarColor = Color.Transparent,
-                        statusBarDarkIcons = !isNightModeNow,
-                        navigationBarDarkIcons = !isNightModeNow,
-                        navigationBarColor = Color.Transparent,
+                        statusBarDarkBackground = isNightModeNow,
+                        navigationBarDarkBackground = isNightModeNow,
                     )
                 },
                 key = statusBarFillProgress,
@@ -149,6 +151,7 @@ fun BottomSheetWrapper(
 
             Box {
                 CompositionLocalProvider(
+                    LocalContentColor provides MaterialTheme.colorScheme.onSurface,
                     LocalBottomSheetScrollState provides BottomSheetScrollState(
                         topPadding = statusBarHeight * statusBarFillProgress,
                     )

@@ -1,20 +1,70 @@
+import java.util.Properties
+
 plugins {
-    id("com.android.application")
-    id("kotlin-android")
-    id("dagger.hilt.android.plugin")
-    id("com.google.devtools.ksp")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.2.0"
+    // Kotlin itself comes from AGP 9's built-in Kotlin support; the standalone
+    // 'org.jetbrains.kotlin.android' plugin is rejected from AGP 9.0 onwards.
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.compose)
 }
 
+/**
+ * Release signing material, so the keystore is never committed and a release build never falls
+ * back to the debug keystore (a debug-signed release cannot be verified, cannot be upgraded
+ * over, and is not uploadable).
+ *
+ * Values are looked up in three places, in order: a Gradle property (-P), an environment
+ * variable, then the git-ignored local.properties.
+ *
+ *   RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+ *
+ * When none of them are present (contributor machines, CI forks, F-Droid) the release variant
+ * is left unsigned and the build still succeeds.
+ */
+val localProperties =
+    Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.isFile) {
+            file.inputStream().use { load(it) }
+        }
+    }
+
+fun signingValue(name: String) =
+    providers
+        .gradleProperty(name)
+        .orElse(providers.environmentVariable(name))
+        .orElse(providers.provider { localProperties.getProperty(name) })
+
+/**
+ * Local smoke testing only: `./gradlew assembleRelease -PsignWithDebugKey` produces an
+ * installable, minified APK signed with the debug key. It is off by default because such an
+ * artifact must never be published or shipped to users.
+ */
+val signReleaseWithDebugKey =
+    providers
+        .gradleProperty("signWithDebugKey")
+        // `-PsignWithDebugKey` sets an empty string, not "true".
+        .map { value -> value.isEmpty() || value.toBoolean() }
+        .orElse(false)
+
+val releaseStoreFile = signingValue("RELEASE_STORE_FILE")
+val releaseStorePassword = signingValue("RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = signingValue("RELEASE_KEY_ALIAS")
+val releaseKeyPassword = signingValue("RELEASE_KEY_PASSWORD")
+
 android {
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.danilkinkin.buckwheat"
+        // Personal fork: distinct applicationId so this installs alongside upstream Buckwheat
+        // instead of upgrading it. The code namespace below intentionally stays unchanged, so
+        // package declarations and generated references (Hilt, Room, tests) need no churn.
+        applicationId = "com.varashines.eva"
         minSdk = 29
         targetSdk = 36
-        versionCode = 29
-        versionName = "4.8.0"
+        versionCode = 99
+        versionName = "5.29.1-dev"
         testInstrumentationRunner = "com.danilkinkin.buckwheat.CustomTestRunner"
     }
 
@@ -23,14 +73,35 @@ android {
         arg("dagger.hilt.disableModulesHaveInstallInCheck", "true")
     }
 
+    signingConfigs {
+        if (releaseStoreFile.isPresent) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile.get())
+                storePassword = releaseStorePassword.orNull
+                keyAlias = releaseKeyAlias.orNull
+                keyPassword = releaseKeyPassword.orNull
+            }
+        }
+    }
+
     buildTypes {
         getByName("debug") {
-            signingConfig = signingConfigs.getByName("debug")
+            // Personal fork: sign debug builds with the release key when one is configured.
+            // A debug-signed install cannot be upgraded by a release-signed APK — Android
+            // rejects the signature mismatch and the only fix is uninstall + reinstall, which
+            // loses the ledger. Sharing one key now makes that switch a normal in-place update.
+            // Contributor machines without credentials still fall back to the debug keystore.
+            signingConfig = signingConfigs.findByName("release")
         }
 
         getByName("release") {
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("debug")
+            isShrinkResources = true
+
+            // A real keystore wins; -PsignWithDebugKey is an explicit local-testing opt-in;
+            // otherwise the release variant stays unsigned rather than silently debug-signed.
+            signingConfig = signingConfigs.findByName("release")
+                ?: if (signReleaseWithDebugKey.get()) signingConfigs.getByName("debug") else null
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -63,61 +134,73 @@ android {
         resources.excludes += "/META-INF/AL2.0"
         resources.excludes += "/META-INF/LGPL2.1"
     }
+
+    lint {
+        // Fork-only strings are written in English and fall back to values/strings.xml. The
+        // inherited locales predate them, and for a personal build a failing lint for every
+        // locale is noise rather than a defect.
+        disable += "MissingTranslation"
+    }
+
     namespace = "com.danilkinkin.buckwheat"
 }
 
+kotlin {
+    jvmToolchain(17)
+}
+
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("androidx.appcompat:appcompat:1.7.1")
-    implementation("androidx.activity:activity-compose:1.10.1")
-    implementation("androidx.compose.runtime:runtime:1.8.3")
-    implementation("androidx.compose.foundation:foundation:1.8.3")
-    implementation("androidx.compose.foundation:foundation-layout:1.8.3")
-    implementation("androidx.compose.ui:ui-util:1.8.3")
-    implementation("androidx.compose.material3:material3-window-size-class:1.3.2")
-    implementation("androidx.compose.animation:animation:1.8.3")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.8.3")
-    implementation("androidx.compose.runtime:runtime-livedata:1.8.3")
-    implementation("androidx.compose.material3:material3:1.3.2")
-    implementation("androidx.compose.material:material:1.8.3")
-    implementation("androidx.datastore:datastore-preferences:1.1.7")
-    implementation("androidx.recyclerview:recyclerview:1.4.0")
-    implementation("androidx.room:room-runtime:2.7.2")
-    implementation("androidx.room:room-ktx:2.7.2")
-    implementation("androidx.room:room-paging:2.7.2")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.2")
-    implementation("androidx.glance:glance-appwidget:1.1.1")
-    implementation("androidx.glance:glance-appwidget-preview:1.1.1")
-    implementation("androidx.glance:glance-preview:1.1.1")
-    implementation("androidx.core:core-splashscreen:1.0.1")
-    implementation("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
-    implementation("com.google.dagger:dagger:2.57")
-    implementation("com.google.dagger:hilt-android:2.57")
-    implementation("org.apache.commons:commons-csv:1.14.0")
-    implementation("io.coil-kt:coil-compose:2.7.0")
-    ksp("androidx.room:room-compiler:2.7.2")
-    ksp("androidx.hilt:hilt-compiler:1.2.0")
-    ksp("com.google.dagger:dagger-compiler:2.57")
-    ksp("com.google.dagger:hilt-android-compiler:2.57")
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.foundation.layout)
+    implementation(libs.androidx.compose.ui.util)
+    implementation(libs.androidx.compose.material3.window.size)
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.runtime.livedata)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.preview)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.hilt.android)
+    implementation(libs.dagger)
+    implementation(libs.commons.csv)
+
+    ksp(libs.androidx.room.compiler)
+    ksp(libs.androidx.hilt.compiler)
+    ksp(libs.dagger.compiler)
+    ksp(libs.hilt.android.compiler)
+
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // Debug
-    debugImplementation("androidx.compose.ui:ui-tooling:1.8.3")
-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.8.3")
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    // Testing
-    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
-    androidTestImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test:core:1.6.1")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    androidTestImplementation("androidx.test:rules:1.6.1")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.compose.ui:ui-test:1.8.3")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.8.3")
-    androidTestImplementation("com.google.dagger:hilt-android-testing:2.57")
-    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.57")
+    // Local unit tests (JVM only, no device): ./gradlew testDebugUnitTest
+    testImplementation(libs.junit)
+
+    // Instrumented tests (device/emulator): ./gradlew connectedDebugAndroidTest
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.compose.ui.test)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.android.compiler)
 }

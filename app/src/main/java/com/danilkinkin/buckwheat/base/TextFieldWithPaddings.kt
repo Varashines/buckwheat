@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,10 +29,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
@@ -48,6 +51,7 @@ import androidx.compose.ui.text.ParagraphIntrinsics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.createFontFamilyResolver
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
@@ -71,6 +75,7 @@ import kotlin.math.ceil
 fun TextFieldWithPaddings(
     value: String = "",
     onChangeValue: (output: String) -> Unit,
+    onDone: () -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(horizontal = 32.dp),
     cursorBrush: Brush = SolidColor(MaterialTheme.colorScheme.primary),
     currency: ExtendCurrency? = null,
@@ -79,15 +84,39 @@ fun TextFieldWithPaddings(
 ) {
     val context = LocalContext.current
     var textFieldValueState by remember { mutableStateOf(TextFieldValue(text = value)) }
+    var hasFocus by remember { mutableStateOf(false) }
+
+    // The input session must start with a safe selection (0) to avoid the focused-rect crash,
+    // but typing should append at the end like a normal amount field. Move the cursor once the
+    // session exists.
+    LaunchedEffect(hasFocus) {
+        if (hasFocus) {
+            withFrameNanos { }
+
+            textFieldValueState = textFieldValueState.copy(
+                selection = TextRange(textFieldValueState.text.length),
+            )
+        }
+    }
 
     val textFieldValue = if (textFieldValueState.text != value) {
-        val newCursorPosition = value.length.coerceAtMost(value.length)
+        // When the value changes while the field is not focused (e.g. the keypad writes a digit
+        // after the tag editor closed), keep the cursor at the start. Compose asks for the
+        // cursor's bounding box when the input session opens, and an end offset on the
+        // transformed text can be out of bounds (offset(1) in [0, 1)).
         textFieldValueState.copy(
             text = value,
-            selection = TextRange(newCursorPosition)
+            selection = TextRange(if (hasFocus) value.length else 0),
         )
     } else {
-        textFieldValueState.copy(text = value)
+        val selection = textFieldValueState.selection
+        textFieldValueState.copy(
+            text = value,
+            selection = TextRange(
+                selection.start.coerceIn(0, value.length),
+                selection.end.coerceIn(0, value.length),
+            ),
+        )
     }
 
     val scrollState = rememberScrollState()
@@ -258,6 +287,17 @@ fun TextFieldWithPaddings(
                         scrollState.value,
                         inputWidth - valueSize.width - currencySymbolSize.width - gapStart,
                     )
+                    .onFocusChanged { focusState ->
+                        hasFocus = focusState.isFocused
+
+                        if (!focusState.isFocused && value.isNotEmpty()) {
+                            // Leave the cursor at the start for the next input session; the
+                            // end offset is what trips Compose's focused-rect calculation.
+                            textFieldValueState = textFieldValueState.copy(
+                                selection = TextRange(0),
+                            )
+                        }
+                    }
                     .focusRequester(focusRequester),
                 decorationBox = { input ->
                     Box(
@@ -274,6 +314,15 @@ fun TextFieldWithPaddings(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.CenterEnd
                         ) {
+                            // An empty field is otherwise indistinguishable from no field at all.
+                            if (textFieldValue.text.isEmpty()) {
+                                Text(
+                                    text = "0",
+                                    style = textStyle.copy(
+                                        color = colorOnEditor.copy(alpha = 0.22f),
+                                    ),
+                                )
+                            }
                             input()
                         }
 
@@ -291,8 +340,9 @@ fun TextFieldWithPaddings(
                 },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal,
-                    showKeyboardOnFocus = false
-                )
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { onDone() }),
             )
         }
 
@@ -300,7 +350,7 @@ fun TextFieldWithPaddings(
             if (textFieldValueState.text != value) {
                 textFieldValueState = textFieldValueState.copy(
                     text = value,
-                    selection = TextRange(value.length)
+                    selection = TextRange(if (hasFocus) value.length else 0),
                 )
             }
         }

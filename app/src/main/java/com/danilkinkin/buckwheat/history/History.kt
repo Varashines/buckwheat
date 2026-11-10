@@ -1,348 +1,975 @@
 package com.danilkinkin.buckwheat.history
 
 import androidx.compose.animation.core.TweenSpec
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.DismissDirection
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.min
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.danilkinkin.buckwheat.LocalWindowInsets
 import com.danilkinkin.buckwheat.R
-import com.danilkinkin.buckwheat.data.AppViewModel
-import com.danilkinkin.buckwheat.data.SpendsViewModel
-import com.danilkinkin.buckwheat.di.TUTORIAL_STAGE
-import com.danilkinkin.buckwheat.di.TUTORS
-import com.danilkinkin.buckwheat.editor.EditorViewModel
-import com.danilkinkin.buckwheat.analytics.WholeBudgetCard
-import com.danilkinkin.buckwheat.ui.BuckwheatTheme
-import com.danilkinkin.buckwheat.ui.colorEditor
+import com.danilkinkin.buckwheat.base.CategoryChip
+import com.danilkinkin.buckwheat.base.EmptyState
+import com.danilkinkin.buckwheat.base.GradientCard
+import com.danilkinkin.buckwheat.base.ListCard
+import com.danilkinkin.buckwheat.base.MinimalTextField
 import com.danilkinkin.buckwheat.data.ExtendCurrency
-import com.danilkinkin.buckwheat.util.isSameDay
-import com.danilkinkin.buckwheat.util.observeLiveData
+import com.danilkinkin.buckwheat.data.ServiceCatalog
+import com.danilkinkin.buckwheat.data.SpendsViewModel
+import com.danilkinkin.buckwheat.data.entities.Category
+import com.danilkinkin.buckwheat.data.entities.Transaction
+import com.danilkinkin.buckwheat.editor.EditorViewModel
+import com.danilkinkin.buckwheat.editor.dateTimeEdit.DatePickerDialog
+import com.danilkinkin.buckwheat.ui.BuckwheatTheme
+import com.danilkinkin.buckwheat.ui.colorOnEditor
+import com.danilkinkin.buckwheat.util.numberFormat
+import com.danilkinkin.buckwheat.util.prettyDate
+import com.danilkinkin.buckwheat.util.prettyYearMonth
 import com.danilkinkin.buckwheat.util.toDate
 import com.danilkinkin.buckwheat.util.toLocalDate
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalDate
-import java.util.*
-import kotlin.math.abs
-import kotlin.math.absoluteValue
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterialApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun History(
     modifier: Modifier = Modifier,
+    initialDay: LocalDate? = null,
     spendsViewModel: SpendsViewModel = viewModel(),
-    appViewModel: AppViewModel = viewModel(),
     editorViewModel: EditorViewModel = viewModel(),
-    readOnly: Boolean = false,
+    onBack: (() -> Unit)? = null,
     onClose: () -> Unit = {}
 ) {
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    var historyList by remember { mutableStateOf<List<RowEntity>>(emptyList()) }
-    val budget = spendsViewModel.budget.observeAsState(initial = BigDecimal.ZERO)
+    val spends by spendsViewModel.spends.observeAsState(emptyList())
+    val categories by spendsViewModel.categories.observeAsState(emptyList())
     val currency = spendsViewModel.currency.observeAsState(initial = ExtendCurrency.none())
-    val startPeriodDate = spendsViewModel.startPeriodDate.observeAsState(initial = Date())
-    val finishPeriodDate = spendsViewModel.finishPeriodDate.observeAsState(initial = Date())
-    val scrollToBottom = remember { mutableStateOf(true) }
-    val tutorial by appViewModel.getTutorialStage(TUTORS.SWIPE_EDIT_SPENT).observeAsState(TUTORIAL_STAGE.NONE)
-    var isUserTrySwipe by remember { mutableStateOf(false) }
 
-    observeLiveData(spendsViewModel.spends) { transactions ->
-        val composedList = emptyList<RowEntity>().toMutableList()
-        var lastSpentDate: LocalDate? = null
-        var lastDayTotal: BigDecimal = BigDecimal.ZERO
+    var selectedCategoryIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var onlySubscriptions by remember { mutableStateOf(false) }
+    var minAmount by remember { mutableStateOf("") }
+    var maxAmount by remember { mutableStateOf("") }
+    var fromDate by remember { mutableStateOf<LocalDate?>(null) }
+    var toDate by remember { mutableStateOf<LocalDate?>(null) }
+    var query by remember { mutableStateOf("") }
+    var searchAllMonths by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+    var showFilters by remember { mutableStateOf(false) }
+    var selectedMonth by remember {
+        mutableStateOf(YearMonth.from(initialDay ?: LocalDate.now()))
+    }
+    var dayFilter by remember { mutableStateOf(initialDay) }
 
-        transactions
-            .forEach { spent ->
-                if (lastSpentDate === null || !isSameDay(
-                        spent.date.time,
-                        lastSpentDate!!.toDate().time
-                    )
-                ) {
-                    if (lastSpentDate !== null) {
-                        composedList.add(
-                            RowEntity(
-                                type = RowEntityType.DayTotal,
-                                key = "total-${lastSpentDate}",
-                                contentHash = "total-${lastSpentDate}",
-                                transaction = null,
-                                day = lastSpentDate!!,
-                                dayTotal = lastDayTotal,
-                            )
-                        )
-                    }
+    val categoriesById = remember(categories) { categories.associateBy { it.id } }
+    val monthSpends = remember(spends, selectedMonth) {
+        spends.filter { YearMonth.from(it.date.toLocalDate()) == selectedMonth }
+    }
+    val sourceSpends = if (searchAllMonths) spends else monthSpends
 
-                    lastSpentDate = spent.date.toLocalDate()
-                    lastDayTotal = BigDecimal.ZERO
-
-                    composedList.add(
-                        RowEntity(
-                            type = RowEntityType.DayDivider,
-                            key = "header-${lastSpentDate}",
-                            contentHash = "header-${lastSpentDate}",
-                            transaction = null,
-                            day = lastSpentDate!!,
-                            dayTotal = null,
-                        )
-                    )
-                }
-
-                lastDayTotal += spent.value
-
-                composedList.add(
-                    RowEntity(
-                        type = RowEntityType.Spent,
-                        key = "spent-${spent.uid}",
-                        contentHash = "spent-${spent.uid}",
-                        transaction = spent,
-                        day = lastSpentDate!!,
-                        dayTotal = null,
-                    )
-                )
-            }
-
-        if (transactions.isNotEmpty() && lastSpentDate !== null) {
-            composedList.add(
-                RowEntity(
-                    type = RowEntityType.DayTotal,
-                    key = "total-${lastSpentDate!!}",
-                    contentHash = "total-${lastSpentDate}",
-                    transaction = null,
-                    day = lastSpentDate!!,
-                    dayTotal = lastDayTotal,
-                )
-            )
-        }
-
-        historyList = composedList.toList().reversed().map { it }
+    LaunchedEffect(categories) {
+        val validIds = categories.mapTo(mutableSetOf()) { it.id }
+        selectedCategoryIds = selectedCategoryIds.filterNot { it !in validIds }.toSet()
     }
 
-    DisposableEffect(Unit) {
-        appViewModel.lockSwipeable.value = false
-        scrollToBottom.value = true
+    val filteredSpends = remember(
+        sourceSpends,
+        selectedCategoryIds,
+        onlySubscriptions,
+        minAmount,
+        maxAmount,
+        fromDate,
+        toDate,
+        query,
+        categoriesById,
+        dayFilter,
+    ) {
+        val min = minAmount.toBigDecimalOrNull()
+        val max = maxAmount.toBigDecimalOrNull()
+        val needle = query.trim().lowercase()
 
-        onDispose {
-            appViewModel.lockSwipeable.value = false
-
-            if (historyList.isNotEmpty() && isUserTrySwipe) {
-                appViewModel.passTutorial(TUTORS.SWIPE_EDIT_SPENT)
-            }
-
+        sourceSpends.filter { transaction ->
+            val categoryId = transaction.categoryId
+            (selectedCategoryIds.isEmpty() || categoryId in selectedCategoryIds) &&
+                    (!onlySubscriptions || transaction.serviceId != null) &&
+                    (min == null || transaction.value >= min) &&
+                    (max == null || transaction.value <= max) &&
+                    (fromDate == null || !transaction.date.toLocalDate().isBefore(fromDate)) &&
+                    (toDate == null || !transaction.date.toLocalDate().isAfter(toDate)) &&
+                    (dayFilter == null || transaction.date.toLocalDate() == dayFilter) &&
+                    transactionMatchesQuery(
+                        transaction = transaction,
+                        query = needle,
+                        categoryName = transaction.categoryId
+                            ?.let { categoriesById[it] }
+                            ?.name,
+                        serviceName = ServiceCatalog.find(transaction.serviceId)?.name,
+                    )
         }
     }
 
+    val filteredTotal = remember(filteredSpends) {
+        filteredSpends.fold(BigDecimal.ZERO) { total, transaction -> total + transaction.value }
+    }
+    val dailyTotals = remember(filteredSpends, selectedMonth) {
+        val byDay = filteredSpends.groupBy { it.date.toLocalDate().dayOfMonth }
+        (1..selectedMonth.lengthOfMonth()).map { day ->
+            byDay[day]?.fold(BigDecimal.ZERO) { total, transaction -> total + transaction.value }
+                ?: BigDecimal.ZERO
+        }
+    }
+    val daysElapsed = if (searchAllMonths) {
+        0
+    } else if (selectedMonth == YearMonth.now()) {
+        LocalDate.now().dayOfMonth
+    } else {
+        selectedMonth.lengthOfMonth()
+    }
+    val dailyAverage = remember(filteredTotal, daysElapsed) {
+        if (daysElapsed <= 0) BigDecimal.ZERO
+        else filteredTotal.divide(BigDecimal(daysElapsed), 0, RoundingMode.HALF_UP)
+    }
+    val historyList = remember(filteredSpends) { composeHistoryRows(filteredSpends) }
+
+    val filtersActive = selectedCategoryIds.isNotEmpty() ||
+            onlySubscriptions ||
+            minAmount.isNotBlank() ||
+            maxAmount.isNotBlank() ||
+            fromDate != null ||
+            toDate != null ||
+            dayFilter != null
+
+    fun clearAllFilters() {
+        selectedCategoryIds = emptySet()
+        onlySubscriptions = false
+        minAmount = ""
+        maxAmount = ""
+        fromDate = null
+        toDate = null
+        query = ""
+        dayFilter = null
+        searchAllMonths = false
+    }
+
+    val showJump by remember { derivedStateOf { scrollState.firstVisibleItemIndex > 0 } }
     val fapScale by animateFloatAsState(
-        targetValue = if (appViewModel.lockSwipeable.value) 1f else 0f,
+        targetValue = if (showJump) 1f else 0f,
         animationSpec = TweenSpec(250),
     )
 
-    val animatedList = updateAnimatedItemsState(newList = historyList)
-
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            LazyColumn(
-                reverseLayout = true,
-                state = scrollState
-            ) {
-
-                // Fixer, because if scroll fast end-checker dispose
-                item("spacer-2") {
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-
-                item("end-checker") {
-                    DisposableEffect(Unit) {
-                        appViewModel.lockSwipeable.value = false
-
-                        onDispose {
-                            appViewModel.lockSwipeable.value = true
-                        }
+            Spacer(Modifier.height(LocalWindowInsets.current.calculateTopPadding()))
+            MonthHeader(
+                month = selectedMonth,
+                canGoNext = selectedMonth < YearMonth.now(),
+                onBack = onBack,
+                onSearch = { showSearch = !showSearch },
+                searchActive = showSearch,
+                onFilters = { showFilters = true },
+                filtersActive = filtersActive,
+                allMonths = searchAllMonths,
+                onPrevious = { selectedMonth = selectedMonth.minusMonths(1) },
+                onNext = {
+                    if (selectedMonth < YearMonth.now()) {
+                        selectedMonth = selectedMonth.plusMonths(1)
                     }
-                }
+                },
+            )
 
-                item("spacer") {
-                    Spacer(modifier = Modifier.height(18.dp))
-                }
+            MonthlySummaryCard(
+                total = filteredTotal,
+                count = filteredSpends.size,
+                dailyAverage = dailyAverage,
+                dailyTotals = dailyTotals,
+                currency = currency.value,
+                filtered = filtersActive || query.isNotBlank() || searchAllMonths,
+                showDailyStats = !searchAllMonths,
+            )
 
-                animatedItemsIndexed(
-                    state = animatedList.value,
-                    key = { rowItem -> rowItem.key },
-                ) { index, row ->
-                    when (row.type) {
-                        RowEntityType.DayDivider -> HistoryDateDivider(row.day)
-                        RowEntityType.DayTotal -> TotalPerDay(
-                            spentPerDay = row.dayTotal!!,
-                            currency = currency.value,
-                        )
-                        RowEntityType.Spent -> if (!readOnly) SwipeActions(
-                            startActionsConfig = SwipeActionsConfig(
-                                threshold = 0.4f,
-                                background = MaterialTheme.colorScheme.tertiaryContainer,
-                                backgroundActive = MaterialTheme.colorScheme.tertiary,
-                                iconTint = MaterialTheme.colorScheme.onTertiary,
-                                icon = painterResource(R.drawable.ic_edit),
-                                stayDismissed = false,
-                                onDismiss = {
-                                    editorViewModel.startEditingSpent(row.transaction!!)
-                                    onClose()
-                                }
-                            ),
-                            endActionsConfig = SwipeActionsConfig(
-                                threshold = 0.4f,
-                                background = MaterialTheme.colorScheme.errorContainer,
-                                backgroundActive = MaterialTheme.colorScheme.error,
-                                iconTint = MaterialTheme.colorScheme.onError,
-                                icon = painterResource(R.drawable.ic_delete_forever),
-                                stayDismissed = true,
-                                onDismiss = {
-                                    spendsViewModel.removeSpent(row.transaction!!)
-                                }
-                            ),
-                            onTried = { isUserTrySwipe = true },
-                            showTutorial = index == 2 && tutorial === TUTORIAL_STAGE.READY_TO_SHOW,
-                        ) { state ->
-                            val size = with(LocalDensity.current) {
-                                java.lang.Float.max(
-                                    java.lang.Float.min(
-                                        16.dp.toPx(),
-                                        abs(state.offset.value)
-                                    ), 0f
-                                ).toDp()
-                            }
+            if (showSearch) {
+                SearchField(
+                    value = query,
+                    onValueChange = { query = it },
+                    allMonths = searchAllMonths,
+                    onToggleAllMonths = { searchAllMonths = !searchAllMonths },
+                )
+            }
 
-                            val animateCorners by remember {
-                                derivedStateOf {
-                                    state.offset.value.absoluteValue > 30
-                                }
-                            }
-                            val startCorners by animateDpAsState(
-                                targetValue = when {
-                                    state.dismissDirection == DismissDirection.StartToEnd &&
-                                            animateCorners -> 8.dp
-                                    else -> 0.dp
-                                }
+            if (dayFilter != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.Start,
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 12.dp, end = 4.dp),
+                        ) {
+                            Text(
+                                text = prettyDate(
+                                    dayFilter!!.toDate(),
+                                    forceShowDate = true,
+                                    showTime = false,
+                                    human = true,
+                                ),
+                                style = MaterialTheme.typography.labelLarge,
                             )
-                            val endCorners by animateDpAsState(
-                                targetValue = when {
-                                    state.dismissDirection == DismissDirection.EndToStart &&
-                                            animateCorners -> 8.dp
-                                    else -> 0.dp
-                                }
-                            )
-
-                            Box(
-                                modifier = Modifier.height(IntrinsicSize.Min)
+                            IconButton(
+                                onClick = { dayFilter = null },
+                                modifier = Modifier.size(28.dp),
                             ) {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(
-                                            vertical = min(
-                                                size / 4f,
-                                                4.dp
-                                            )
-                                        )
-                                        .clip(RoundedCornerShape(size)),
-                                    color = colorEditor,
-                                    shape = RoundedCornerShape(
-                                        topStart = startCorners,
-                                        bottomStart = startCorners,
-                                        topEnd = endCorners,
-                                        bottomEnd = endCorners,
-                                    ),
-                                ) {
-                                }
-                                Box(
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                ) {
-                                    SpentItem(
-                                        transaction = row.transaction!!,
-                                        currency = currency.value
-                                    )
-                                }
-                            }
-                        } else {
-                            SpentItem(
-                                transaction = row.transaction!!,
-                                currency = currency.value
-                            )
-                        }
-                    }
-                }
-
-                if (!readOnly) {
-                    item("budget-info") {
-                        WholeBudgetCard(
-                            modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp),
-                            budget = budget.value,
-                            currency = currency.value,
-                            startDate = startPeriodDate.value,
-                            finishDate = finishPeriodDate.value,
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                            ),
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(
-                                    LocalWindowInsets.current.calculateTopPadding()
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_close),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
                                 )
-                        )
+                            }
+                        }
                     }
                 }
             }
 
-            if (historyList.isEmpty()) {
-                NoSpends(Modifier.weight(1f))
+            if (filtersActive || query.isNotBlank() || searchAllMonths) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = { clearAllFilters() }) {
+                        Text(stringResource(R.string.clear_filters))
+                    }
+                }
+            }
+
+            Box(Modifier.weight(1f)) {
+                when {
+                    monthSpends.isEmpty() -> NoSpends(Modifier.fillMaxSize())
+
+                    historyList.isEmpty() -> EmptyState(
+                        icon = painterResource(R.drawable.ic_filter),
+                        title = stringResource(R.string.no_matches),
+                        actionLabel = stringResource(R.string.clear_filters),
+                        onAction = { clearAllFilters() },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    else -> LazyColumn(
+                        state = scrollState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 4.dp,
+                            bottom = 96.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(
+                            items = historyList,
+                            key = { rowItem -> rowItem.key },
+                        ) { row ->
+                            when (row.type) {
+                                RowEntityType.DayDivider -> HistoryDateDivider(
+                                    date = row.day,
+                                    dayTotal = row.dayTotal ?: BigDecimal.ZERO,
+                                    currency = currency.value,
+                                    dayCount = row.dayCount ?: 0,
+                                )
+
+                                // Day totals now live in the divider; old rows are no longer emitted.
+                                RowEntityType.DayTotal -> Unit
+
+                                RowEntityType.Spent -> {
+                                    val transaction = row.transaction!!
+                                    val service = ServiceCatalog.find(transaction.serviceId)
+                                    val category = transaction.categoryId?.let { categoriesById[it] }
+                                    val accent = service?.let { Color(it.brandColor) }
+                                        ?: category?.let { Color(it.color) }
+
+                                    SwipeActions(
+                                        modifier = Modifier.clip(RoundedCornerShape(24.dp)),
+                                        startActionsConfig = SwipeActionsConfig(
+                                            threshold = 0.4f,
+                                            background = MaterialTheme.colorScheme.tertiaryContainer,
+                                            backgroundActive = MaterialTheme.colorScheme.tertiary,
+                                            iconTint = MaterialTheme.colorScheme.onTertiary,
+                                            icon = painterResource(R.drawable.ic_edit),
+                                            stayDismissed = false,
+                                            onDismiss = {
+                                                editorViewModel.startEditingSpent(transaction)
+                                                onClose()
+                                            }
+                                        ),
+                                        endActionsConfig = SwipeActionsConfig(
+                                            threshold = 0.4f,
+                                            background = MaterialTheme.colorScheme.errorContainer,
+                                            backgroundActive = MaterialTheme.colorScheme.error,
+                                            iconTint = MaterialTheme.colorScheme.onError,
+                                            icon = painterResource(R.drawable.ic_delete_forever),
+                                            stayDismissed = true,
+                                            onDismiss = {
+                                                spendsViewModel.removeSpent(transaction)
+                                            }
+                                        ),
+                                    ) {
+                                        ListCard(
+                                            accent = accent,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(24.dp))
+                                                .clickable {
+                                                    editorViewModel.startEditingSpent(transaction)
+                                                    onClose()
+                                                },
+                                        ) {
+                                            SpentItem(
+                                                transaction = transaction,
+                                                currency = currency.value,
+                                                category = category,
+                                                service = service,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        if (!readOnly) {
-            Column(
-                horizontalAlignment = Alignment.End,
+        Column(
+            horizontalAlignment = Alignment.End,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding(),
+        ) {
+            FloatingActionButton(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
+                    .padding(end = 24.dp, bottom = 32.dp)
+                    .scale(fapScale),
+                onClick = {
+                    coroutineScope.launch {
+                        scrollState.animateScrollToItem(0)
+                    }
+                },
             ) {
-                FloatingActionButton(
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_down),
+                    contentDescription = null,
                     modifier = Modifier
-                        .padding(end = 24.dp, bottom = 32.dp)
-                        .scale(fapScale),
-                    onClick = {
-                        coroutineScope.launch {
-                            scrollState.animateScrollToItem(0)
-                        }
-                    },
+                        .size(ButtonDefaults.IconSize)
+                        .rotate(180f),
+                )
+            }
+        }
+    }
+
+    if (showFilters) {
+        FiltersDialog(
+            categories = categories,
+            selectedCategoryIds = selectedCategoryIds,
+            onlySubscriptions = onlySubscriptions,
+            minAmount = minAmount,
+            maxAmount = maxAmount,
+            fromDate = fromDate,
+            toDate = toDate,
+            onDismiss = { showFilters = false },
+            onApply = { selectedCategories, only, min, max, from, to ->
+                selectedCategoryIds = selectedCategories
+                onlySubscriptions = only
+                minAmount = min
+                maxAmount = max
+                fromDate = from
+                toDate = to
+                showFilters = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun MonthlySummaryCard(
+    total: BigDecimal,
+    count: Int,
+    dailyAverage: BigDecimal,
+    dailyTotals: List<BigDecimal>,
+    currency: ExtendCurrency,
+    filtered: Boolean,
+    showDailyStats: Boolean = true,
+) {
+    val context = LocalContext.current
+
+    GradientCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(28.dp),
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(
+                            if (filtered) R.string.filtered_total else R.string.total_spent
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = numberFormat(context, total, currency),
+                        style = MaterialTheme.typography.displaySmall.copy(
+                            fontFeatureSettings = "tnum",
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
+                    Text(
+                        text = pluralStringResource(R.plurals.expenses_count, count, count),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                }
+            }
+
+            if (showDailyStats) {
+                Spacer(Modifier.height(14.dp))
+
+                Sparkline(dailyTotals)
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text = "${stringResource(R.string.daily_average)} " +
+                            numberFormat(context, dailyAverage, currency),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Sparkline(dailyTotals: List<BigDecimal>) {
+    val max = dailyTotals.maxOfOrNull { it } ?: BigDecimal.ZERO
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        dailyTotals.forEach { amount ->
+            val fraction = if (max > BigDecimal.ZERO) {
+                amount.toFloat() / max.toFloat()
+            } else {
+                0f
+            }
+
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight(fraction.coerceAtLeast(0.06f))
+                    .clip(RoundedCornerShape(2.dp))
+                    .then(
+                        Modifier.background(
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                alpha = if (amount > BigDecimal.ZERO) 0.55f else 0.12f
+                            )
+                        )
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    allMonths: Boolean,
+    onToggleAllMonths: () -> Unit,
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.weight(1f)) {
+                MinimalTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    placeholder = stringResource(R.string.search_expenses),
+                )
+            }
+            if (value.isNotEmpty()) {
+                IconButton(onClick = { onValueChange("") }) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_arrow_down),
+                        painter = painterResource(R.drawable.ic_close),
                         contentDescription = null,
-                        modifier = Modifier.size(ButtonDefaults.IconSize)
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+        ) {
+            CategoryChip(
+                text = stringResource(R.string.all_months),
+                selected = allMonths,
+                onClick = onToggleAllMonths,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DatePill(
+    label: String,
+    date: LocalDate?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = if (date != null) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        contentColor = if (date != null) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = LocalContentColor.current.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = date?.format(DateTimeFormatter.ofPattern("d MMM"))
+                    ?: stringResource(R.string.any_date),
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FiltersDialog(
+    categories: List<Category>,
+    selectedCategoryIds: Set<Int>,
+    onlySubscriptions: Boolean,
+    minAmount: String,
+    maxAmount: String,
+    fromDate: LocalDate?,
+    toDate: LocalDate?,
+    onDismiss: () -> Unit,
+    onApply: (Set<Int>, Boolean, String, String, LocalDate?, LocalDate?) -> Unit,
+) {
+    var localCategories by remember { mutableStateOf(selectedCategoryIds) }
+    var localOnly by remember { mutableStateOf(onlySubscriptions) }
+    var localMin by remember { mutableStateOf(minAmount) }
+    var localMax by remember { mutableStateOf(maxAmount) }
+    var localFrom by remember { mutableStateOf(fromDate) }
+    var localTo by remember { mutableStateOf(toDate) }
+    var showFromPicker by remember { mutableStateOf(false) }
+    var showToPicker by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            Column(
+                Modifier
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.filters),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.only_subscriptions),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = localOnly,
+                        onCheckedChange = { localOnly = it },
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    text = stringResource(R.string.amount_range),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MinimalTextField(
+                        value = localMin,
+                        onValueChange = { localMin = it.filter { c -> c.isDigit() || c == '.' } },
+                        placeholder = stringResource(R.string.min_amount),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        textStyle = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.width(130.dp),
+                        fillWidth = false,
+                    )
+                    MinimalTextField(
+                        value = localMax,
+                        onValueChange = { localMax = it.filter { c -> c.isDigit() || c == '.' } },
+                        placeholder = stringResource(R.string.max_amount),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        textStyle = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.width(130.dp),
+                        fillWidth = false,
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    text = stringResource(R.string.date_range),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DatePill(
+                        label = stringResource(R.string.from_date),
+                        date = localFrom,
+                        onClick = { showFromPicker = true },
+                        modifier = Modifier.weight(1f),
+                    )
+                    DatePill(
+                        label = stringResource(R.string.to_date),
+                        date = localTo,
+                        onClick = { showToPicker = true },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                if (categories.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        text = stringResource(R.string.categories_title),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
+                    Spacer(Modifier.height(8.dp))
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        CategoryChip(
+                            text = stringResource(R.string.all_categories),
+                            selected = localCategories.isEmpty(),
+                            onClick = { localCategories = emptySet() },
+                        )
+                        categories.forEach { category ->
+                            CategoryChip(
+                                text = category.name,
+                                iconKey = category.icon,
+                                selected = category.id in localCategories,
+                                onClick = {
+                                    localCategories = if (category.id in localCategories) {
+                                        localCategories - category.id
+                                    } else {
+                                        localCategories + category.id
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
+
+                Spacer(Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(
+                        onClick = {
+                            localCategories = emptySet()
+                            localOnly = false
+                            localMin = ""
+                            localMax = ""
+                            localFrom = null
+                            localTo = null
+                        },
+                    ) {
+                        Text(stringResource(R.string.clear_filters))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            onApply(
+                                localCategories,
+                                localOnly,
+                                localMin,
+                                localMax,
+                                localFrom,
+                                localTo,
+                            )
+                        },
+                    ) {
+                        Text(stringResource(R.string.apply))
+                    }
+                }
+            }
+        }
+    }
+
+    if (showFromPicker) {
+        DatePickerDialog(
+            initDate = localFrom ?: LocalDate.now(),
+            disableAfterDate = localTo,
+            onSelect = {
+                localFrom = it
+                showFromPicker = false
+            },
+            onClose = { showFromPicker = false },
+        )
+    }
+
+    if (showToPicker) {
+        DatePickerDialog(
+            initDate = localTo ?: LocalDate.now(),
+            disableBeforeDate = localFrom,
+            onSelect = {
+                localTo = it
+                showToPicker = false
+            },
+            onClose = { showToPicker = false },
+        )
+    }
+}
+
+private fun composeHistoryRows(transactions: List<Transaction>): List<RowEntity> {
+    val rows = mutableListOf<RowEntity>()
+
+    // Newest day first, and the newest spend of that day first: the list is read top-down.
+    transactions.groupBy { it.date.toLocalDate() }.entries.reversed().forEach { (day, daySpends) ->
+        val dayTotal = daySpends.fold(BigDecimal.ZERO) { total, spend -> total + spend.value }
+
+        rows.add(
+            RowEntity(
+                type = RowEntityType.DayDivider,
+                key = "header-$day",
+                transaction = null,
+                day = day,
+                dayTotal = dayTotal,
+                dayCount = daySpends.size,
+            )
+        )
+
+        daySpends.reversed().forEach { spend ->
+            rows.add(
+                RowEntity(
+                    type = RowEntityType.Spent,
+                    key = "spent-${spend.uid}",
+                    transaction = spend,
+                    day = day,
+                    dayTotal = null,
+                )
+            )
+        }
+    }
+
+    return rows
+}
+
+@Composable
+private fun MonthHeader(
+    month: YearMonth,
+    canGoNext: Boolean,
+    onBack: (() -> Unit)? = null,
+    onSearch: () -> Unit,
+    searchActive: Boolean,
+    onFilters: () -> Unit,
+    filtersActive: Boolean,
+    allMonths: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (onBack != null) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_back),
+                    contentDescription = null,
+                )
+            }
+        }
+        Text(
+            text = if (allMonths) {
+                stringResource(R.string.search_results)
+            } else {
+                prettyYearMonth(month)
+            },
+            style = MaterialTheme.typography.titleLarge,
+            color = colorOnEditor,
+            maxLines = 1,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+        )
+        IconButton(onClick = onSearch) {
+            Icon(
+                painter = painterResource(R.drawable.ic_search),
+                contentDescription = stringResource(R.string.search_expenses),
+                tint = if (searchActive) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+        }
+        IconButton(onClick = onFilters) {
+            Icon(
+                painter = painterResource(R.drawable.ic_filter),
+                contentDescription = stringResource(R.string.filters),
+                tint = if (filtersActive) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+        }
+        if (!allMonths) {
+            IconButton(onClick = onPrevious) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_left),
+                    contentDescription = null,
+                )
+            }
+            IconButton(onClick = onNext, enabled = canGoNext) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                )
             }
         }
     }

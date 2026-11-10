@@ -21,9 +21,13 @@ object AppModule {
         DatabaseModule::class.java,
         "buckwheat-db",
     )
-        .fallbackToDestructiveMigration()
-        .allowMainThreadQueries()
+        // Never fall back to a destructive migration: silently dropping the database
+        // deletes the user's entire spending history. Every schema change needs a real
+        // migration in DatabaseModule.
         .addMigrations(*DatabaseModule.MANUAL_MIGRATIONS)
+        .addCallback(SeedDefaultCategoriesCallback)
+        // Main-thread queries are not allowed; the repository moves DAO work to
+        // Dispatchers.IO.
         .build()
 
     @Singleton
@@ -32,5 +36,13 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideStorageDao(db: DatabaseModule) = db.storageDao()
+    fun provideCategoryDao(db: DatabaseModule) = db.categoryDao()
+
+    @Singleton
+    @Provides
+    fun provideSubscriptionDao(db: DatabaseModule) = db.subscriptionDao()
+
+    @Singleton
+    @Provides
+    fun provideSubscriptionPriceChangeDao(db: DatabaseModule) = db.subscriptionPriceChangeDao()
 }

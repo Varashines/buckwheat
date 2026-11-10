@@ -3,4 +3,15 @@
     <color name="primary">#000</color>
     <color name="surface">#fff</color>
     <color name="onSurface">#000</color>
+
+    <!-- Launcher background per theme preset (see ThemePresets.kt). -->
+    <color name="launcher_mac">#0A84FF</color>
+    <color name="launcher_trippy">#3E9DB0</color>
+    <color name="launcher_chill">#67A06B</color>
+    <color name="launcher_epic">#8C66A8</color>
+    <color name="launcher_emotional">#D06A93</color>
+    <color name="launcher_sunset">#E07A48</color>
+
+    <!-- Palette-neutral dark; close to every preset's background. -->
+    <color name="splash_background">#111418</color>
 </resources>

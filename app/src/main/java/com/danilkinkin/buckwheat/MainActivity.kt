@@ -3,10 +3,12 @@ package com.danilkinkin.buckwheat
 import OverrideLocalize
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -18,12 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.core.view.WindowCompat
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.lifecycleScope
-import com.danilkinkin.buckwheat.base.balloon.BalloonProvider
-import com.danilkinkin.buckwheat.data.dao.StorageDao
-import com.danilkinkin.buckwheat.di.migrateToDataStore
 import com.danilkinkin.buckwheat.home.MainScreen
 import dagger.hilt.android.AndroidEntryPoint
 import com.danilkinkin.buckwheat.ui.BuckwheatTheme
@@ -34,11 +32,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import syncOverrideLocale
 import java.util.*
-import javax.inject.Inject
 
 val Context.budgetDataStore by preferencesDataStore("budget")
 val Context.settingsDataStore by preferencesDataStore("settings")
 var Context.appTheme by mutableStateOf(ThemeMode.SYSTEM)
+var Context.appThemePreset by mutableStateOf(0)
 var Context.appLocale: Locale? by mutableStateOf(null)
 var Context.systemLocale: Locale? by mutableStateOf(null)
 var Context.errorForReport: String? by mutableStateOf(null)
@@ -48,24 +46,33 @@ val LocalWindowInsets = compositionLocalOf { PaddingValues(0.dp) }
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_OPEN_ADD = "com.varashines.eva.OPEN_ADD"
+    }
+
     // Broke tests. Set to true for tests
     private val isDone: MutableState<Boolean> = mutableStateOf(false)
     private val isReady: MutableState<Boolean> = mutableStateOf(false)
-
-    //TODO: Remove after 01.01.2024. Need for migration to DataStore
-    @Inject
-    lateinit var storageDao: StorageDao
+    private val addRequested = mutableStateOf(false)
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Edge-to-edge is mandatory from Android 15 (targetSdk 35+); the deprecated
+        // WindowCompat.setDecorFitsSystemWindows(window, false) is the legacy equivalent and
+        // does not set up the system bar styles for the current window.
+        enableEdgeToEdge()
         val context = this.applicationContext
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         installSplashScreen().setKeepOnScreenCondition { !isDone.value }
         lifecycleScope.launch {
             context.settingsDataStore.data.first()
         }
 
         super.onCreate(savedInstanceState)
+
+        if (intent?.getBooleanExtra(EXTRA_OPEN_ADD, false) == true) {
+            addRequested.value = true
+            intent.removeExtra(EXTRA_OPEN_ADD)
+        }
 
         setContent {
             val localContext = LocalContext.current
@@ -74,7 +81,6 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 syncTheme(localContext)
                 syncOverrideLocale(localContext)
-                migrateToDataStore(context, storageDao)
 
                 // App ready for work
                 isReady.value = true
@@ -95,22 +101,34 @@ class MainActivity : ComponentActivity() {
             if (isReady.value) {
                 BuckwheatTheme {
                     OverrideLocalize {
-                        BalloonProvider {
-                            CompositionLocalProvider(
-                                LocalWindowSize provides widthSizeClass,
-                                LocalWindowInsets provides windowInsets,
-                            ) {
-                                MainScreen(activityResultRegistryOwner)
+                        CompositionLocalProvider(
+                            LocalWindowSize provides widthSizeClass,
+                            LocalWindowInsets provides windowInsets,
+                        ) {
+                            MainScreen(
+                                activityResultRegistryOwner = activityResultRegistryOwner,
+                                openAddRequest = addRequested.value,
+                                onAddRequestHandled = { addRequested.value = false },
+                            )
 
-                                LaunchedEffect(Unit) {
-                                    // App rendered and splash screen can be hidden
-                                    isDone.value = true
-                                }
+                            LaunchedEffect(Unit) {
+                                // App rendered and splash screen can be hidden
+                                isDone.value = true
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        if (intent.getBooleanExtra(EXTRA_OPEN_ADD, false)) {
+            addRequested.value = true
+            intent.removeExtra(EXTRA_OPEN_ADD)
         }
     }
 }

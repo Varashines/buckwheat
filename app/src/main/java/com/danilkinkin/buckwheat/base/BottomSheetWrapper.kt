@@ -1,8 +1,6 @@
 package com.danilkinkin.buckwheat.base
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
@@ -78,7 +76,6 @@ fun BottomSheetWrapper(
     name: String,
     appViewModel: AppViewModel = viewModel(),
     cancelable: Boolean = true,
-    fillHeight: Boolean = false,
     content: @Composable (state: ModalBottomSheetState) -> Unit,
 ) {
     val sheets by appViewModel.sheetStates.collectAsStateWithLifecycle()
@@ -145,13 +142,7 @@ fun BottomSheetWrapper(
             LocalContentColor provides MaterialTheme.colorScheme.onSurface,
             LocalBottomSheetScrollState provides BottomSheetScrollState(0.dp),
         ) {
-            if (fillHeight) {
-                Box(Modifier.fillMaxHeight()) {
-                    content(state)
-                }
-            } else {
-                content(state)
-            }
+            content(state)
         }
     }
 }

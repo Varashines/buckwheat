@@ -4,7 +4,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -136,7 +135,6 @@ fun EditorSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight()
             .imePadding()
             .padding(bottom = 16.dp),
     ) {
@@ -228,7 +226,7 @@ fun EditorSheet(
         if (tab == AddTab.EXPENSE) {
             Column(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(1f, fill = false)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
             ) {
@@ -337,7 +335,7 @@ fun EditorSheet(
                         onClose()
                     },
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1f, fill = false)
                         .padding(horizontal = 24.dp),
                     onAddCategory = { showAddCategory = true },
                     onMarkPaid = editingSubscription

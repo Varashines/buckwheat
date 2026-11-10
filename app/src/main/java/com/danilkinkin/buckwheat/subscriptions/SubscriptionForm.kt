@@ -172,7 +172,7 @@ fun SubscriptionForm(
     ) {
         Column(
             modifier = Modifier
-                .weight(1f)
+                .weight(1f, fill = false)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
         ) {

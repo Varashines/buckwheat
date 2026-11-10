@@ -72,6 +72,7 @@ fun MainScreen(
     var historyDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
     // YearMonth is not Saveable; the first day of the month is.
     var historyMonthEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
+    var historyReturn by rememberSaveable { mutableStateOf(AppScreen.HOME) }
     val nightMode = remember { mutableStateOf(false) }
 
     nightMode.value = isNightMode()
@@ -142,11 +143,13 @@ fun MainScreen(
                     onOpenHistory = {
                         historyDay = null
                         historyMonthEpoch = null
+                        historyReturn = AppScreen.HOME
                         screen = AppScreen.HISTORY
                     },
                     onOpenToday = {
                         historyDay = LocalDate.now()
                         historyMonthEpoch = null
+                        historyReturn = AppScreen.HOME
                         screen = AppScreen.HISTORY
                     },
                     onOpenStats = { screen = AppScreen.STATS },
@@ -173,7 +176,7 @@ fun MainScreen(
                     onBack = {
                         historyDay = null
                         historyMonthEpoch = null
-                        screen = AppScreen.HOME
+                        screen = historyReturn
                     },
                     onClose = {
                         appViewModel.openSheet(PathState(EDITOR_SHEET))
@@ -212,6 +215,7 @@ fun MainScreen(
                     onOpenHistoryMonth = { month ->
                         historyDay = null
                         historyMonthEpoch = month.atDay(1).toEpochDay()
+                        historyReturn = AppScreen.STATS
                         screen = AppScreen.HISTORY
                     },
                     onEditTransaction = { transaction ->

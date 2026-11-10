@@ -146,7 +146,7 @@ fun Settings(
         if (granted) {
             setDigestEnabled(true)
         } else {
-            AppToast.show(context.getString(R.string.notifications_disabled))
+            AppToast.show(context.resources.getString(R.string.notifications_disabled))
         }
     }
 

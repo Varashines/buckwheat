@@ -3,7 +3,10 @@ package com.danilkinkin.buckwheat.stats
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -35,12 +38,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,7 +57,6 @@ import com.danilkinkin.buckwheat.data.ExtendCurrency
 import com.danilkinkin.buckwheat.data.SpendsViewModel
 import com.danilkinkin.buckwheat.data.SubscriptionsViewModel
 import com.danilkinkin.buckwheat.data.billCategoryNames
-import com.danilkinkin.buckwheat.base.CategoryIcon
 import com.danilkinkin.buckwheat.base.DonutChart
 import com.danilkinkin.buckwheat.base.DonutSegment
 import com.danilkinkin.buckwheat.base.GradientCard
@@ -68,22 +74,27 @@ import com.danilkinkin.buckwheat.util.toLocalDate
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.math.abs
-import kotlin.math.roundToInt
+import kotlin.math.sqrt
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.time.format.TextStyle
+import java.time.temporal.WeekFields
 
 /**
  * Ledger statistics: what a month cost, where it went and how it was spread over the days.
  * No budget, no period, no horizontal scrolling — one month per screen, read top-down.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StatsScreen(
     onBack: () -> Unit,
     onOpenSubscriptionInsights: () -> Unit = {},
     onOpenHistoryMonth: (YearMonth) -> Unit = {},
+    onOpenDay: (LocalDate) -> Unit = {},
     onEditTransaction: (Transaction) -> Unit = {},
     spendsViewModel: SpendsViewModel = hiltViewModel(),
     subscriptionsViewModel: SubscriptionsViewModel = hiltViewModel(),
@@ -347,9 +358,12 @@ fun StatsScreen(
 
                             Spacer(Modifier.height(16.dp))
 
-                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
                                 categoryTotals.forEach { categoryTotal ->
-                                    CategoryShareRow(
+                                    CategoryPill(
                                         categoryTotal = categoryTotal,
                                         previousAmount = previousCategoryTotals[
                                             categoryTotal.category?.id
@@ -362,9 +376,9 @@ fun StatsScreen(
                     }
                 }
 
-                item("days") {
+                item("calendar") {
                     SectionTitle(
-                        title = stringResource(R.string.by_day),
+                        title = stringResource(R.string.spending_calendar),
                         icon = painterResource(R.drawable.ic_calendar),
                         caption = peakDay
                             ?.takeIf { it.second > BigDecimal.ZERO }
@@ -379,8 +393,11 @@ fun StatsScreen(
                             },
                     )
                     SectionCard {
-                        DayChart(
+                        MonthHeatmap(
+                            month = month,
                             dailyTotals = dailyTotals,
+                            currency = currency,
+                            onSelectDay = onOpenDay,
                             modifier = Modifier.padding(20.dp),
                         )
                     }
@@ -738,104 +755,6 @@ private fun SectionCard(
 }
 
 @Composable
-private fun CategoryShareRow(
-    categoryTotal: CategoryTotal,
-    previousAmount: BigDecimal,
-    currency: ExtendCurrency,
-) {
-    val context = LocalContext.current
-    val color = categoryTotal.category
-        ?.let { Color(it.color) }
-        ?: MaterialTheme.colorScheme.primary
-    val name = categoryTotal.category?.name
-        ?: stringResource(R.string.no_category)
-    val percent = (categoryTotal.fraction * 100f).roundToInt()
-        .coerceAtLeast(if (categoryTotal.fraction > 0f) 1 else 0)
-
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(color),
-            )
-            Spacer(Modifier.width(8.dp))
-            CategoryIcon(
-                category = categoryTotal.category,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = name,
-                style = MaterialTheme.typography.bodyLarge,
-                color = colorOnEditor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = numberFormat(context, categoryTotal.amount, currency),
-                style = MaterialTheme.typography.titleSmall,
-                color = colorOnEditor,
-                maxLines = 1,
-                softWrap = false,
-            )
-        }
-
-        Spacer(Modifier.height(6.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .weight(1f)
-                    .height(6.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth(categoryTotal.fraction.coerceIn(0f, 1f))
-                        .height(6.dp)
-                        .clip(CircleShape)
-                        .background(color),
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            val delta = percentDelta(categoryTotal.amount, previousAmount)
-
-            Column(
-                modifier = Modifier.width(52.dp),
-                horizontalAlignment = Alignment.End,
-            ) {
-                Text(
-                    text = stringResource(R.string.share_percent, percent),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colorOnEditor.copy(alpha = 0.6f),
-                    textAlign = TextAlign.End,
-                    maxLines = 1,
-                )
-                if (delta != null) {
-                    Text(
-                        text = "${if (delta >= 0) "↑" else "↓"}${abs(delta)}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (delta > 0) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        textAlign = TextAlign.End,
-                        maxLines = 1,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun YearOverview(
     values: List<Pair<YearMonth, BigDecimal>>,
     selectedMonth: YearMonth,
@@ -939,44 +858,202 @@ private fun YearOverview(
 }
 
 @Composable
-private fun DayChart(
+private fun MonthHeatmap(
+    month: YearMonth,
     dailyTotals: List<Pair<Int, BigDecimal>>,
+    currency: ExtendCurrency,
+    onSelectDay: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val max = dailyTotals.maxOfOrNull { it.second } ?: BigDecimal.ZERO
-    val maxHeight = 104.dp
+    val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
+    val weekStart = remember(locale) { WeekFields.of(locale).firstDayOfWeek }
+    val cells = remember(month, weekStart) { monthCells(month, weekStart) }
+    val weeks = remember(cells) { cells.chunked(7) }
+    val amounts = remember(dailyTotals) { dailyTotals.toMap() }
+    val max = remember(dailyTotals) { dailyTotals.maxOfOrNull { it.second } ?: BigDecimal.ZERO }
+    val today = LocalDate.now()
+    val baseTextColor = colorOnEditor
+    val primary = MaterialTheme.colorScheme.primary
+    val onPrimary = MaterialTheme.colorScheme.onPrimary
+    val cellShape = RoundedCornerShape(10.dp)
+    val dayFormatter = remember(locale) { DateTimeFormatter.ofPattern("d MMMM", locale) }
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(maxHeight),
-        contentAlignment = Alignment.BottomStart,
-    ) {
+    Column(modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            dailyTotals.forEach { (_, amount) ->
-                val fraction = if (max > BigDecimal.ZERO) {
-                    amount.toFloat() / max.toFloat()
-                } else {
-                    0f
-                }
-                val barHeight = (maxHeight * fraction).coerceAtLeast(3.dp)
+            repeat(7) { index ->
+                val day = DayOfWeek.of(((weekStart.value + index - 1) % 7) + 1)
+                Text(
+                    text = day.getDisplayName(TextStyle.NARROW, locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = baseTextColor.copy(alpha = 0.55f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
 
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(barHeight)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(
-                            if (amount > BigDecimal.ZERO) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
+        Spacer(Modifier.height(6.dp))
+
+        weeks.forEachIndexed { weekIndex, week ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                week.forEach { day ->
+                    if (day == null) {
+                        Spacer(
+                            Modifier
+                                .weight(1f)
+                                .aspectRatio(0.8f),
+                        )
+                    } else {
+                        val amount = amounts[day.dayOfMonth] ?: BigDecimal.ZERO
+                        val fraction = if (max > BigDecimal.ZERO) {
+                            sqrt(amount.toFloat() / max.toFloat())
+                        } else {
+                            0f
+                        }
+                        val isFuture = day.isAfter(today)
+                        val isToday = day == today
+                        val fill = when {
+                            isFuture -> Color.Transparent
+                            amount <= BigDecimal.ZERO -> {
                                 MaterialTheme.colorScheme.surfaceContainerHighest
                             }
-                        ),
+
+                            else -> primary.copy(alpha = 0.15f + fraction * 0.7f)
+                        }
+                        val numberColor = when {
+                            isFuture -> baseTextColor.copy(alpha = 0.35f)
+                            amount > BigDecimal.ZERO && fraction > 0.55f -> onPrimary
+                            else -> baseTextColor
+                        }
+                        val description = stringResource(
+                            R.string.day_spent_description,
+                            day.format(dayFormatter),
+                            numberFormat(context, amount, currency),
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(0.8f)
+                                .clip(cellShape)
+                                .background(fill)
+                                .then(
+                                    if (isFuture) {
+                                        Modifier.border(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.outline
+                                                .copy(alpha = 0.25f),
+                                            shape = cellShape,
+                                        )
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                                .clickable(enabled = !isFuture) { onSelectDay(day) }
+                                .semantics { contentDescription = description },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = day.dayOfMonth.toString(),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = numberColor,
+                                )
+                                if (isToday) {
+                                    Spacer(Modifier.height(2.dp))
+                                    Box(
+                                        Modifier
+                                            .size(4.dp)
+                                            .clip(CircleShape)
+                                            .background(numberColor),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (weekIndex < weeks.lastIndex) {
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = stringResource(R.string.heatmap_hint),
+            style = MaterialTheme.typography.labelSmall,
+            color = baseTextColor.copy(alpha = 0.55f),
+        )
+    }
+}
+
+private fun monthCells(month: YearMonth, weekStart: DayOfWeek): List<LocalDate?> {
+    val cells = mutableListOf<LocalDate?>()
+    val first = month.atDay(1)
+    val leading = (first.dayOfWeek.value - weekStart.value + 7) % 7
+
+    repeat(leading) { cells.add(null) }
+    for (day in 1..month.lengthOfMonth()) cells.add(month.atDay(day))
+    while (cells.size % 7 != 0) cells.add(null)
+
+    return cells
+}
+
+@Composable
+private fun CategoryPill(
+    categoryTotal: CategoryTotal,
+    previousAmount: BigDecimal,
+    currency: ExtendCurrency,
+) {
+    val context = LocalContext.current
+    val color = categoryTotal.category
+        ?.let { Color(it.color) }
+        ?: MaterialTheme.colorScheme.primary
+    val contentColor = if (color.luminance() > 0.55f) Color.Black else Color.White
+    val name = categoryTotal.category?.name ?: stringResource(R.string.no_category)
+    val delta = percentDelta(categoryTotal.amount, previousAmount)
+
+    Surface(
+        shape = CircleShape,
+        color = color,
+        contentColor = contentColor,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = numberFormat(context, categoryTotal.amount, currency),
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontFeatureSettings = "tnum",
+                ),
+                maxLines = 1,
+                softWrap = false,
+            )
+            if (delta != null) {
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "${if (delta >= 0) "↑" else "↓"}${abs(delta)}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = 0.8f),
+                    maxLines = 1,
                 )
             }
         }

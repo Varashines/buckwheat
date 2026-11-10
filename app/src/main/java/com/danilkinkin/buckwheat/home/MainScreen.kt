@@ -218,6 +218,12 @@ fun MainScreen(
                         historyReturn = AppScreen.STATS
                         screen = AppScreen.HISTORY
                     },
+                    onOpenDay = { day ->
+                        historyDay = day
+                        historyMonthEpoch = null
+                        historyReturn = AppScreen.STATS
+                        screen = AppScreen.HISTORY
+                    },
                     onEditTransaction = { transaction ->
                         editorViewModel.startEditingSpent(transaction)
                         appViewModel.openSheet(PathState(EDITOR_SHEET))

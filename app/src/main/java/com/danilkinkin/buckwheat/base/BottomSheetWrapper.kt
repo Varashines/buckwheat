@@ -1,9 +1,7 @@
 package com.danilkinkin.buckwheat.base
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,26 +15,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.danilkinkin.buckwheat.LocalWindowInsets
 import com.danilkinkin.buckwheat.data.AppViewModel
 import com.danilkinkin.buckwheat.data.SystemBarState
 import com.danilkinkin.buckwheat.ui.isNightMode
 import com.danilkinkin.buckwheat.util.setSystemStyle
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 data class BottomSheetScrollState(
     val topPadding: Dp,
@@ -76,7 +68,7 @@ class ModalBottomSheetState internal constructor(
  *
  * This used to run a vendored Material2 swipeable and a hand-written layout. Material3's
  * [ModalBottomSheet] now owns the drag, nested scroll, fling, predictive back and window
- * handling. The status bar fill effect is rebuilt on top of [SheetState.requireOffset].
+ * handling. The sheet sits below the status bar and the drag handle stays with the content.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,22 +99,6 @@ fun BottomSheetWrapper(
         }
     }
 
-    val density = LocalDensity.current
-    val statusBarHeight = LocalWindowInsets.current.calculateTopPadding()
-    val statusBarPx = with(density) { statusBarHeight.toPx() }
-
-    // Quantised so the shape only rebuilds a handful of times while dragging.
-    val statusBarFillProgress by remember(statusBarPx, sheetState) {
-        derivedStateOf {
-            if (statusBarPx <= 0f || !sheetState.isVisible) {
-                0f
-            } else {
-                val offsetPx = runCatching { sheetState.requireOffset() }.getOrDefault(0f)
-                ((statusBarPx - offsetPx) / statusBarPx).coerceIn(0f, 1f)
-            }.let { ((it * 20f).roundToInt() / 20f) }
-        }
-    }
-
     val focusManager = LocalFocusManager.current
     LaunchedEffect(Unit) {
         focusManager.clearFocus()
@@ -137,8 +113,7 @@ fun BottomSheetWrapper(
                 navigationBarDarkBackground = isNightModeNow,
             )
         },
-        key = statusBarFillProgress,
-        confirmChange = { statusBarFillProgress > 0.5F },
+        key = isNightModeNow,
     )
 
     ModalBottomSheet(
@@ -146,10 +121,7 @@ fun BottomSheetWrapper(
             scope.launch { state.hide() }
         },
         sheetState = sheetState,
-        shape = RoundedCornerShape(
-            topStart = 28.dp * (1f - statusBarFillProgress),
-            topEnd = 28.dp * (1f - statusBarFillProgress),
-        ),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface,
         scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f),
@@ -159,7 +131,8 @@ fun BottomSheetWrapper(
         } else {
             null
         },
-        contentWindowInsets = { WindowInsets(0) },
+        // Top only: sheet content already pads its own navigation bar area.
+        contentWindowInsets = { WindowInsets.statusBars },
         properties = ModalBottomSheetProperties(
             shouldDismissOnBackPress = cancelable,
             shouldDismissOnClickOutside = cancelable,
@@ -167,14 +140,9 @@ fun BottomSheetWrapper(
     ) {
         CompositionLocalProvider(
             LocalContentColor provides MaterialTheme.colorScheme.onSurface,
-            LocalBottomSheetScrollState provides BottomSheetScrollState(
-                topPadding = statusBarHeight * statusBarFillProgress,
-            ),
+            LocalBottomSheetScrollState provides BottomSheetScrollState(0.dp),
         ) {
             content(state)
         }
-
-        // The drag handle is drawn by Material3 above the content; no extra padding is needed.
-        Box(Modifier.fillMaxWidth())
     }
 }

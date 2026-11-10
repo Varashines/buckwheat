@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -155,6 +157,7 @@ fun SwipeActions(
         }
     }
 
+    val restingIconTint = contentColorFor(config.background)
     val iconScale by animateFloatAsState(
         targetValue = if (willDismiss) 1.15f else 1f,
         animationSpec = tween(durationMillis = 150),
@@ -198,7 +201,7 @@ fun SwipeActions(
                         Image(
                             painter = icon,
                             colorFilter = ColorFilter.tint(
-                                if (willDismiss) config.iconTint else config.backgroundActive,
+                                if (willDismiss) config.iconTint else restingIconTint,
                             ),
                             contentDescription = null,
                         )
@@ -209,7 +212,7 @@ fun SwipeActions(
 
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .offset { IntOffset(offset.roundToInt(), 0) },
         ) {
             content()

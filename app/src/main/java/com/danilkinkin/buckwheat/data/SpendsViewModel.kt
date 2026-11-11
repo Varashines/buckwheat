@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.danilkinkin.buckwheat.data.entities.Category
 import com.danilkinkin.buckwheat.data.entities.Transaction
+import com.danilkinkin.buckwheat.data.BackupCodec
 import com.danilkinkin.buckwheat.di.SpendsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -24,7 +26,11 @@ import javax.inject.Inject
 class SpendsViewModel @Inject constructor(
     private val spendsRepository: SpendsRepository,
 ) : ViewModel() {
+    private val _loaded = MutableStateFlow(false)
+    val loaded = _loaded.asStateFlow()
+
     val spends = spendsRepository.getAllSpends()
+        .onEach { _loaded.value = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val categories = spendsRepository.getAllCategories()
@@ -102,9 +108,9 @@ class SpendsViewModel @Inject constructor(
         }
     }
 
-    fun restoreBackup(json: String, onResult: (Boolean) -> Unit) {
+    fun restoreBackup(json: String, onResult: (BackupCodec.Backup?) -> Unit) {
         viewModelScope.launch {
-            onResult(runCatching { spendsRepository.restoreBackup(json) }.isSuccess)
+            onResult(runCatching { spendsRepository.restoreBackup(json) }.getOrNull())
         }
     }
 

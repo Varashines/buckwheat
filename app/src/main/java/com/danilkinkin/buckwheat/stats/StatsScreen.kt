@@ -69,6 +69,7 @@ import com.danilkinkin.buckwheat.ui.colorOnEditor
 import com.danilkinkin.buckwheat.util.numberFormat
 import com.danilkinkin.buckwheat.util.prettyDate
 import com.danilkinkin.buckwheat.util.prettyYearMonth
+import com.danilkinkin.buckwheat.util.rememberHaptics
 import com.danilkinkin.buckwheat.util.toDate
 import com.danilkinkin.buckwheat.util.toLocalDate
 import java.math.BigDecimal
@@ -873,6 +874,7 @@ private fun MonthHeatmap(
     val amounts = remember(dailyTotals) { dailyTotals.toMap() }
     val max = remember(dailyTotals) { dailyTotals.maxOfOrNull { it.second } ?: BigDecimal.ZERO }
     val today = LocalDate.now()
+    val haptics = rememberHaptics()
     val baseTextColor = colorOnEditor
     val primary = MaterialTheme.colorScheme.primary
     val onPrimary = MaterialTheme.colorScheme.onPrimary
@@ -956,7 +958,10 @@ private fun MonthHeatmap(
                                         Modifier
                                     }
                                 )
-                                .clickable(enabled = !isFuture) { onSelectDay(day) }
+                                .clickable(enabled = !isFuture) {
+                                    haptics.tap()
+                                    onSelectDay(day)
+                                }
                                 .semantics { contentDescription = description },
                             contentAlignment = Alignment.Center,
                         ) {

@@ -29,6 +29,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -203,6 +205,11 @@ fun History(
             fromDate != null ||
             toDate != null ||
             dayFilter != null
+    val activeFilterCount = selectedCategoryIds.size +
+            (if (onlySubscriptions) 1 else 0) +
+            (if (minAmount.isNotBlank() || maxAmount.isNotBlank()) 1 else 0) +
+            (if (fromDate != null || toDate != null) 1 else 0) +
+            (if (dayFilter != null) 1 else 0)
 
     fun clearAllFilters() {
         selectedCategoryIds = emptySet()
@@ -233,6 +240,7 @@ fun History(
                 searchActive = showSearch,
                 onFilters = { showFilters = true },
                 filtersActive = filtersActive,
+                activeFilterCount = activeFilterCount,
                 allMonths = searchAllMonths,
                 onPrevious = { selectedMonth = selectedMonth.minusMonths(1) },
                 onNext = {
@@ -905,6 +913,7 @@ private fun MonthHeader(
     searchActive: Boolean,
     onFilters: () -> Unit,
     filtersActive: Boolean,
+    activeFilterCount: Int,
     allMonths: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -947,16 +956,26 @@ private fun MonthHeader(
                 },
             )
         }
-        IconButton(onClick = onFilters) {
-            Icon(
-                painter = painterResource(R.drawable.ic_filter),
-                contentDescription = stringResource(R.string.filters),
-                tint = if (filtersActive) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-            )
+        BadgedBox(
+            badge = {
+                if (activeFilterCount > 0) {
+                    Badge {
+                        Text(activeFilterCount.toString())
+                    }
+                }
+            },
+        ) {
+            IconButton(onClick = onFilters) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_filter),
+                    contentDescription = stringResource(R.string.filters),
+                    tint = if (filtersActive) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+            }
         }
         if (!allMonths) {
             IconButton(onClick = onPrevious) {

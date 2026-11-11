@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.danilkinkin.buckwheat.R
+import com.danilkinkin.buckwheat.MainActivity
+import com.danilkinkin.buckwheat.base.AppToastHost
 import com.danilkinkin.buckwheat.base.SwipeableSnackbarHost
 import com.danilkinkin.buckwheat.data.AppViewModel
 import com.danilkinkin.buckwheat.data.PathState
@@ -59,8 +61,8 @@ private enum class AppScreen { HOME, HISTORY, SUBSCRIPTIONS, SUBSCRIPTION_INSIGH
 @Composable
 fun MainScreen(
     activityResultRegistryOwner: ActivityResultRegistryOwner?,
-    openAddRequest: Boolean = false,
-    onAddRequestHandled: () -> Unit = {},
+    launchRequest: String? = null,
+    onLaunchRequestHandled: () -> Unit = {},
     appViewModel: AppViewModel = viewModel(),
     editorViewModel: EditorViewModel = hiltViewModel(),
     spendsViewModel: SpendsViewModel = viewModel(),
@@ -107,13 +109,34 @@ fun MainScreen(
         key = nightMode.value,
     )
 
-    LaunchedEffect(openAddRequest) {
-        if (openAddRequest) {
-            editorViewModel.resetEditingSpent()
-            appViewModel.openSheet(PathState(EDITOR_SHEET, mapOf("tab" to "expense")))
-            screen = AppScreen.HOME
-            onAddRequestHandled()
+    LaunchedEffect(launchRequest) {
+        when (launchRequest) {
+            MainActivity.ROUTE_ADD -> {
+                editorViewModel.resetEditingSpent()
+                appViewModel.openSheet(PathState(EDITOR_SHEET, mapOf("tab" to "expense")))
+                screen = AppScreen.HOME
+            }
+
+            MainActivity.ROUTE_HISTORY -> {
+                historyDay = null
+                historyMonthEpoch = null
+                historyReturn = AppScreen.HOME
+                screen = AppScreen.HISTORY
+            }
+
+            MainActivity.ROUTE_TODAY -> {
+                historyDay = LocalDate.now()
+                historyMonthEpoch = null
+                historyReturn = AppScreen.HOME
+                screen = AppScreen.HISTORY
+            }
+
+            MainActivity.ROUTE_STATS -> {
+                screen = AppScreen.STATS
+            }
         }
+
+        if (launchRequest != null) onLaunchRequestHandled()
     }
 
     BackHandler(enabled = screen != AppScreen.HOME) {
@@ -282,6 +305,13 @@ fun MainScreen(
             ) {
                 SwipeableSnackbarHost(hostState = remember { appViewModel._snackbarHostState })
             }
+
+            AppToastHost(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+            )
         }
     }
 }

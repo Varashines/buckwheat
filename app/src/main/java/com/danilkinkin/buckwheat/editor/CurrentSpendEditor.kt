@@ -93,6 +93,10 @@ fun CurrentSpendEditor(
                         val fixed = fixedNumberString(it.replace(',', '.'))
                         val converted = tryConvertStringToNumber(fixed)
 
+                        // The field is controlled by spentValue. Do not wait for the stage
+                        // StateFlow to re-emit: it conflates equal values, so after the first
+                        // digit EDIT_SPENT is already current and the text would snap back.
+                        spentValue = fixed
                         editorViewModel.rawSpentValue.value = fixed
                         editorViewModel.modifyEditingSpent(converted.join().toBigDecimal())
 
